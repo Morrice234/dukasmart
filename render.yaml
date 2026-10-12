@@ -1,0 +1,43 @@
+# Render Blueprint: free web service for the DukaSmart API.
+# Render dashboard > New > Blueprint > pick this repository.
+services:
+  - type: web
+    name: dukasmart-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    # Migrations are safe to run on every start (they only add what is missing)
+    startCommand: npm run migrate && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL        # Neon connection string, with ?sslmode=require
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_JWT_SECRET
+        generateValue: true
+      - key: MPESA_CALLBACK_SECRET
+        generateValue: true
+      - key: TRIAL_DAYS
+        value: "7"
+      - key: CORS_ORIGINS        # your Netlify address, e.g. https://dukasmart-admin.netlify.app
+        sync: false
+      - key: PUBLIC_BASE_URL     # this service's own address, e.g. https://dukasmart-api.onrender.com
+        sync: false
+      - key: MPESA_ENV
+        value: production
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_TRANSACTION_TYPE
+        sync: false
+      - key: MPESA_PARTY_B
+        sync: false

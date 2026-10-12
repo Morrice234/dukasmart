@@ -1,0 +1,29 @@
+{
+  "name": "dukasmart-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "migrate": "node src/scripts/migrate.js",
+    "create-admin": "node src/scripts/createAdmin.js",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose stop db",
+    "db:logs": "docker compose logs -f db",
+    "db:psql": "docker exec -it dukasmart-db sh -c \"psql -U $POSTGRES_USER -d $POSTGRES_DB\"",
+    "db:backup": "scripts\\backup.bat",
+    "setup": "npm run db:up && node src/scripts/waitForDb.js && npm run migrate"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.13.0"
+  }
+}

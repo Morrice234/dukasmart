@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dukasmart-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dukasmart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-dukasmart}
+      TZ: Africa/Nairobi
+    ports:
+      # Only reachable from this computer, not from the rest of the network
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - dukasmart-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dukasmart} -d ${POSTGRES_DB:-dukasmart}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  # Data lives here and survives container restarts, rebuilds and "docker compose down"
+  dukasmart-pgdata:
+    name: dukasmart-pgdata

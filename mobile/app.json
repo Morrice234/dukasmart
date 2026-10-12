@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "DukaSmart",
+    "slug": "dukasmart",
+    "scheme": "dukasmart",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "ke.dukasmart.app",
+      "softwareKeyboardLayoutMode": "pan",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F7B4A"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "ke.dukasmart.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F7B4A"
+    }
+  }
+}

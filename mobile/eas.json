@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "wifi-test": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.1.20:4000",
+        "ALLOW_HTTP": "true"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.yourdomain.co.ke"
+      }
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.yourdomain.co.ke"
+      }
+    }
+  }
+}
