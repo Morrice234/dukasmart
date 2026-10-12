@@ -14,7 +14,19 @@ for (const key of ['DATABASE_URL', 'JWT_SECRET', 'ADMIN_JWT_SECRET']) {
 const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true }));
+// Websites allowed to call the API from a browser (the admin panel). Spaces and trailing slashes are ignored.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+app.use(cors({
+  origin(origin, done) {
+    // Phones and server-to-server calls (M-Pesa) send no Origin header
+    if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin)) return done(null, true);
+    console.warn(`Blocked browser request from ${origin}. Add it to CORS_ORIGINS to allow it.`);
+    return done(null, false);
+  },
+}));
 app.use(express.json({ limit: '5mb' }));
 app.use(morgan('tiny'));
 

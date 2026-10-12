@@ -27,7 +27,8 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, { method = 'GET', body, timeout = 20000 } = {}) {
+// 45 seconds, so a request still succeeds if the free server is waking up from sleep
+export async function api(path, { method = 'GET', body, timeout = 45000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   let res;
