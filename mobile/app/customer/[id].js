@@ -3,6 +3,7 @@ import { Alert, FlatList, Linking, Pressable, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import EntrySheet from '../../src/components/EntrySheet';
+import SmsSheet from '../../src/components/SmsSheet';
 import { Button, Card, Empty, s } from '../../src/components/ui';
 import { colors } from '../../src/theme';
 import { useLiveQuery } from '../../src/hooks/useData';
@@ -17,6 +18,7 @@ export default function CustomerScreen() {
   const customer = useLiveQuery(() => getCustomer(id), [id]);
   const entries = useLiveQuery(() => customerEntries(id), [id]) || [];
   const [sheet, setSheet] = useState(null); // { type, entry }
+  const [smsOpen, setSmsOpen] = useState(false);
 
   if (!customer) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
 
@@ -38,7 +40,8 @@ export default function CustomerScreen() {
     });
   }
 
-  function remind() {
+  // Sends from the owner's own phone and airtime, for cashiers or when SMS credits run out
+  function remindFromPhone() {
     if (!customer.phone) return;
     const msg = `Habari ${customer.name}, this is a friendly reminder from ${business ? business.name : 'us'} that your balance is ${money(customer.balance)}. Asante!`;
     Linking.openURL(`sms:${customer.phone}?body=${encodeURIComponent(msg)}`);
@@ -78,7 +81,13 @@ export default function CustomerScreen() {
               <Button title="Give deni" icon="arrow-up" variant="outline" style={{ flex: 1, marginRight: 6 }} onPress={() => open('credit')} />
               <Button title="Record payment" icon="arrow-down" style={{ flex: 1, marginLeft: 6 }} onPress={() => open('payment')} />
             </View>
-            {customer.phone && customer.balance > 0 ? <Button title="Send SMS reminder" icon="chatbubble-outline" variant="ghost" onPress={remind} style={{ marginBottom: 8 }} /> : null}
+            {customer.phone && customer.balance > 0 ? (
+              permissions.canSendSms ? (
+                <Button title="Send SMS reminder" icon="chatbubble-outline" variant="ghost" onPress={() => (subscription.active ? setSmsOpen(true) : router.push('/subscribe'))} style={{ marginBottom: 8 }} />
+              ) : (
+                <Button title="Remind from my phone" icon="chatbubble-outline" variant="ghost" onPress={remindFromPhone} style={{ marginBottom: 8 }} />
+              )
+            ) : null}
             <Text style={[s.h2, { marginBottom: 8 }]}>History</Text>
           </>
         )}
@@ -97,6 +106,7 @@ export default function CustomerScreen() {
           </Pressable>
         )}
       />
+      <SmsSheet visible={smsOpen} customers={[customer]} onClose={() => setSmsOpen(false)} />
       <EntrySheet
         visible={Boolean(sheet)}
         onClose={() => setSheet(null)}

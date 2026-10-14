@@ -3,13 +3,13 @@
     "name": "DukaSmart",
     "slug": "dukasmart",
     "scheme": "dukasmart",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "android": {
       "package": "ke.dukasmart.app",
       "softwareKeyboardLayoutMode": "pan",
-      "versionCode": 2,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F7B4A"

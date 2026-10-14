@@ -5,8 +5,9 @@ const rateLimit = require('express-rate-limit');
 const { query, transaction } = require('../db');
 const { HttpError, publicBusiness } = require('../utils');
 const { requireAdmin } = require('../middleware/auth');
-const { extendSubscription } = require('../services/subscription');
+const { extendSubscription, addSmsCredits } = require('../services/subscription');
 const { onPaymentSuccess } = require('../services/referrals');
+const { temporaryPin, hashPin, deleteBusiness } = require('../services/accounts');
 
 const router = express.Router();
 
@@ -59,8 +60,13 @@ router.get('/stats', async (req, res) => {
     SELECT (SELECT count(*)::int FROM referrals WHERE created_at >= date_trunc('month', now())) AS month_signups,
            (SELECT count(*)::int FROM referrals WHERE status = 'converted') AS converted,
            (SELECT COALESCE(sum(amount), 0)::int FROM referral_rewards WHERE kind = 'cash' AND status = 'pending') AS pending_cash`)).rows[0];
+  const sms = (await query(`
+    SELECT COALESCE(sum(segments) FILTER (WHERE status = 'sent'), 0)::int AS sent,
+           COALESCE(sum(NULLIF(regexp_replace(cost, '[^0-9.]', '', 'g'), '')::numeric) FILTER (WHERE status = 'sent'), 0)::float AS cost
+      FROM sms_messages WHERE created_at >= date_trunc('month', now())`)).rows[0];
   res.json({
     total, ...counts, activeToday,
+    smsSentMonth: sms.sent, smsCostMonth: Math.round(sms.cost * 100) / 100,
     openLeads: leads.open, leadsDue: leads.due,
     referralSignupsMonth: refs.month_signups, referralConversions: refs.converted, pendingPayouts: refs.pending_cash,
     revenueMonth: Number(revenue.month), revenueAllTime: Number(revenue.all_time),
@@ -106,7 +112,12 @@ router.get('/businesses/:id', async (req, res) => {
       FROM referrals r LEFT JOIN businesses rb ON rb.id = r.referrer_business LEFT JOIN agents a ON a.id = r.referrer_agent
      WHERE r.referee_id = $1`, [b.id])).rows[0] || null;
   const referred = (await query(`SELECT count(*)::int AS n, count(*) FILTER (WHERE status = 'converted')::int AS converted FROM referrals WHERE referrer_business = $1`, [b.id])).rows[0];
-  res.json({ business: { ...publicBusiness(b), lastSyncAt: b.last_sync_at }, payments, usage, branches, employees, referredBy, referred });
+  const sms = (await query(`
+    SELECT count(*) FILTER (WHERE status <> 'failed')::int AS sent,
+           COALESCE(sum(segments) FILTER (WHERE status <> 'failed'), 0)::int AS used,
+           max(created_at) AS last_sent
+      FROM sms_messages WHERE business_id = $1`, [b.id])).rows[0];
+  res.json({ business: { ...publicBusiness(b), lastSyncAt: b.last_sync_at }, payments, usage, branches, employees, referredBy, referred, sms });
 });
 
 // Body: { status?: 'active'|'suspended', extendTrialDays?: number }
@@ -125,6 +136,54 @@ router.patch('/businesses/:id', async (req, res) => {
 });
 
 // Record a cash or manual payment and activate the plan. Body: { planCode, months?, note? }
+// Owner forgot their PIN: sets a new temporary PIN and returns it so you can tell them.
+// Body (optional): { pin } to choose the PIN yourself.
+router.post('/businesses/:id/reset-pin', async (req, res) => {
+  const chosen = req.body && req.body.pin ? String(req.body.pin) : null;
+  if (chosen && !/^\d{4,6}$/.test(chosen)) throw new HttpError(400, 'PIN must be 4 to 6 digits');
+  const pin = chosen || temporaryPin();
+  const { rows } = await query('UPDATE businesses SET pin_hash = $2 WHERE id = $1 RETURNING name, phone', [req.params.id, await hashPin(pin)]);
+  if (!rows[0]) throw new HttpError(404, 'Business not found');
+  console.log(`Owner PIN reset for ${rows[0].name} by ${req.admin.email}`);
+  res.json({ pin, phone: rows[0].phone });
+});
+
+router.post('/employees/:id/reset-pin', async (req, res) => {
+  const chosen = req.body && req.body.pin ? String(req.body.pin) : null;
+  if (chosen && !/^\d{4,6}$/.test(chosen)) throw new HttpError(400, 'PIN must be 4 to 6 digits');
+  const pin = chosen || temporaryPin();
+  const { rows } = await query('UPDATE employees SET pin_hash = $2 WHERE id = $1 RETURNING name, phone', [req.params.id, await hashPin(pin)]);
+  if (!rows[0]) throw new HttpError(404, 'Staff member not found');
+  console.log(`Staff PIN reset for ${rows[0].name} by ${req.admin.email}`);
+  res.json({ pin, phone: rows[0].phone });
+});
+
+// Permanent deletion, e.g. when a shop asks for its data to be removed.
+// Body: { confirmName } must match the business name exactly.
+router.delete('/businesses/:id', async (req, res) => {
+  const b = (await query('SELECT name FROM businesses WHERE id = $1', [req.params.id])).rows[0];
+  if (!b) throw new HttpError(404, 'Business not found');
+  if (!req.body || String(req.body.confirmName || '').trim() !== b.name) {
+    throw new HttpError(400, 'Type the business name exactly to confirm deletion');
+  }
+  const deleted = await transaction((client) => deleteBusiness(client, req.params.id));
+  console.log(`Business deleted: ${deleted.name} (${deleted.phone}) by ${req.admin.email}`);
+  res.json({ ok: true });
+});
+
+// Give (or take back, with a negative number) SMS reminders. Body: { amount }
+router.post('/businesses/:id/sms-credits', async (req, res) => {
+  const amount = Math.round(Number((req.body || {}).amount));
+  if (!amount || Math.abs(amount) > 10000) throw new HttpError(400, 'Enter a number of SMS, for example 20');
+  const { rows } = await query(
+    'UPDATE businesses SET sms_credits = GREATEST(0, sms_credits + $2) WHERE id = $1 RETURNING *',
+    [req.params.id, amount]
+  );
+  if (!rows[0]) throw new HttpError(404, 'Business not found');
+  console.log(`SMS credits ${amount > 0 ? '+' : ''}${amount} for ${rows[0].name} by ${req.admin.email}`);
+  res.json({ business: publicBusiness(rows[0]) });
+});
+
 router.post('/businesses/:id/grant', async (req, res) => {
   const { planCode, months = 1, note } = req.body || {};
   const plan = (await query('SELECT * FROM plans WHERE code = $1', [planCode])).rows[0];
@@ -140,6 +199,7 @@ router.post('/businesses/:id/grant', async (req, res) => {
       [b.id, plan.code, plan.price_kes * m, b.phone, note || `Granted by ${req.admin.email}`]
     )).rows[0];
     await extendSubscription(client, b.id, plan.code, plan.duration_days * m);
+    await addSmsCredits(client, b.id, plan.sms_credits * m);
     await onPaymentSuccess(client, payment);
   });
   const updated = (await query('SELECT * FROM businesses WHERE id = $1', [b.id])).rows[0];
@@ -166,16 +226,16 @@ router.get('/plans', async (req, res) => {
 });
 
 router.put('/plans/:code', async (req, res) => {
-  const { name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees } = req.body || {};
+  const { name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits } = req.body || {};
   if (!name || !(Number(price_kes) > 0) || !(Number(duration_days) > 0)) throw new HttpError(400, 'Name, price and duration are required');
   const { rows } = await query(
-    `INSERT INTO plans (code, name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO plans (code, name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (code) DO UPDATE SET name = $2, price_kes = $3, duration_days = $4, features = $5, is_active = $6, sort_order = $7,
-                                      max_branches = $8, max_employees = $9
+                                      max_branches = $8, max_employees = $9, sms_credits = $10
      RETURNING *`,
     [req.params.code, name, Number(price_kes), Number(duration_days), JSON.stringify(features || []), is_active !== false, Number(sort_order) || 0,
-      Math.max(1, Number(max_branches) || 1), Math.max(0, Number(max_employees) || 0)]
+      Math.max(1, Number(max_branches) || 1), Math.max(0, Number(max_employees) || 0), Math.max(0, Math.round(Number(sms_credits) || 0))]
   );
   res.json({ plan: rows[0] });
 });

@@ -56,6 +56,7 @@ function AppStack() {
       <Stack.Screen name="branches" options={withHeader('Branches')} />
       <Stack.Screen name="team" options={withHeader('Staff')} />
       <Stack.Screen name="invite" options={withHeader('Invite & earn')} />
+      <Stack.Screen name="export" options={withHeader('Export records')} />
     </Stack>
   );
 }

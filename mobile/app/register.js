@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, ScrollView, Text, View } from 'react-native';
 import { Link, Redirect, router } from 'expo-router';
 import { Button, Chips, Input, s } from '../src/components/ui';
 import { colors } from '../src/theme';
 import { useAuth } from '../src/context/AuthContext';
-import { api } from '../src/api/client';
+import { api, PRIVACY_URL } from '../src/api/client';
 
 const TYPES = [
   { value: 'duka', label: 'Duka / Shop' },
@@ -73,6 +73,10 @@ export default function Register() {
         <Input label="Create a PIN" value={form.pin} onChangeText={set('pin')} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder="4 to 6 digits" />
         <Input label="Confirm PIN" value={form.confirm} onChangeText={set('confirm')} keyboardType="number-pad" secureTextEntry maxLength={6} />
         {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
+        <Text style={[s.muted, { fontSize: 12, marginBottom: 12 }]}>
+          By creating an account you agree to our{' '}
+          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy policy</Text>.
+        </Text>
         <Button title="Create account" onPress={submit} loading={loading} disabled={!form.businessName || !form.phone || form.pin.length < 4} />
         <View style={[s.row, { justifyContent: 'center', marginTop: 20 }]}>
           <Text style={s.muted}>Already registered? </Text>

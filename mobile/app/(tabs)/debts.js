@@ -12,16 +12,20 @@ import { money, timeAgo } from '../../src/utils/format';
 import { useAuth } from '../../src/context/AuthContext';
 import { useBranch } from '../../src/context/BranchContext';
 import BranchSwitcher from '../../src/components/BranchSwitcher';
+import SmsSheet from '../../src/components/SmsSheet';
 
 export default function Debts() {
-  const { subscription } = useAuth();
+  const { subscription, permissions } = useAuth();
   const { branchFilter, defaultBranchId, branches, branchName } = useBranch();
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [remindOpen, setRemindOpen] = useState(false);
   const customers = useLiveQuery(() => customersWithBalance(search, branchFilter), [search, branchFilter]) || [];
   const owed = customers.reduce((n, c) => n + Math.max(0, c.balance), 0);
+  // Everyone who owes and has a phone number, biggest balance first (the server takes up to 100 at a time)
+  const remindable = customers.filter((c) => c.balance > 0 && c.phone).slice(0, 100);
 
   function openAdd() {
     if (!subscription.active) { router.push('/subscribe'); return; }
@@ -47,6 +51,15 @@ export default function Debts() {
           <Text style={s.muted}>Customers owe you</Text>
           <Text style={{ fontSize: 28, fontWeight: '800', color: colors.warning }}>{money(owed)}</Text>
           <Text style={s.muted}>{customers.filter((c) => c.balance > 0).length} customers with unpaid deni</Text>
+          {permissions.canSendSms && remindable.length && !search ? (
+            <Button
+              title={`SMS reminder to ${remindable.length === 1 ? '1 customer' : `all ${remindable.length}`}`}
+              icon="chatbubbles-outline"
+              variant="outline"
+              onPress={() => (subscription.active ? setRemindOpen(true) : router.push('/subscribe'))}
+              style={{ marginTop: 10 }}
+            />
+          ) : null}
         </Card>
         <View style={[s.row, { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }]}>
           <Ionicons name="search" size={18} color={colors.muted} />
@@ -80,6 +93,8 @@ export default function Debts() {
       <Pressable onPress={openAdd} style={{ position: 'absolute', right: 20, bottom: 24, backgroundColor: colors.primary, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 4 }}>
         <Ionicons name="person-add" size={26} color="#fff" />
       </Pressable>
+
+      <SmsSheet visible={remindOpen} customers={remindable} onClose={() => setRemindOpen(false)} />
 
       <Modal visible={adding} transparent animationType="fade" onRequestClose={() => setAdding(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 24 }}>

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Button, Card, s } from '../../src/components/ui';
+import { Button, Card, Input, s } from '../../src/components/ui';
 import { colors } from '../../src/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useBranch } from '../../src/context/BranchContext';
 import { useSyncState } from '../../src/hooks/useData';
 import { syncNow } from '../../src/sync/syncEngine';
+import { api, PRIVACY_URL } from '../../src/api/client';
+import { wipeLocalData } from '../../src/db/database';
 import { daysLeft, shortDate, timeAgo } from '../../src/utils/format';
 
 const STATE_TEXT = { trial: 'Free trial', active: 'Active', expired: 'Expired', suspended: 'Suspended' };
@@ -44,6 +46,8 @@ export default function Account() {
   const { branches, branchName } = useBranch();
   const sync = useSyncState();
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(null); // { pin, error, loading } while the delete sheet is open
+  const insets = useSafeAreaInsets();
   if (!business) return null;
 
   async function doSync() {
@@ -62,6 +66,31 @@ export default function Account() {
         },
       },
     ]);
+  }
+
+  function askDelete() {
+    Alert.alert(
+      'Delete account permanently?',
+      `This deletes ${business.name} and all its sales, expenses, deni, stock, branches and staff from this phone and from the cloud. Staff will also lose access. It cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', style: 'destructive', onPress: () => setDeleting({ pin: '', error: null, loading: false }) },
+      ]
+    );
+  }
+
+  async function confirmDelete() {
+    setDeleting((d) => ({ ...d, loading: true, error: null }));
+    try {
+      await api('/auth/delete-account', { method: 'POST', body: { pin: deleting.pin } });
+      setDeleting(null);
+      await wipeLocalData();
+      await signOut(true);
+      router.replace('/login');
+      Alert.alert('Account deleted', 'Your business and all its records have been removed.');
+    } catch (e) {
+      setDeleting((d) => (d ? { ...d, loading: false, error: e.message } : d));
+    }
   }
 
   return (
@@ -98,6 +127,7 @@ export default function Account() {
           <Text style={[s.h2, { marginBottom: 6 }]}>Subscription</Text>
           <Row label="Status" value={STATE_TEXT[subscription.state] || subscription.state} />
           {subscription.planCode ? <Row label="Plan" value={subscription.planCode} /> : null}
+          <Row label="SMS reminders left" value={String(business.smsCredits || 0)} />
           {subscription.endsAt ? (
             <Row label={subscription.active ? 'Ends' : 'Ended'} value={`${shortDate(subscription.endsAt)}${subscription.active ? ` (${daysLeft(subscription.endsAt)} days)` : ''}`} />
           ) : null}
@@ -117,8 +147,35 @@ export default function Account() {
           </Text>
         </Card>
 
+        {permissions.canExport ? (
+          <LinkRow icon="download-outline" title="Export records" subtitle="Sales, expenses, deni and stock to Excel (CSV)" onPress={() => router.push('/export')} />
+        ) : null}
+        <LinkRow icon="shield-checkmark-outline" title="Privacy policy" subtitle="How we handle your data" onPress={() => Linking.openURL(PRIVACY_URL)} />
+
         <Button title="Sign out" variant="ghost" onPress={logout} />
+        {permissions.isOwner ? (
+          <Pressable onPress={askDelete} style={{ alignItems: 'center', paddingVertical: 14 }}>
+            <Text style={{ color: colors.danger, fontWeight: '600' }}>Delete account</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
+
+      <Modal visible={Boolean(deleting)} transparent animationType="slide" onRequestClose={() => setDeleting(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <ScrollView style={{ backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }} contentContainerStyle={{ padding: 20, paddingBottom: 20 + insets.bottom }} keyboardShouldPersistTaps="handled">
+            {deleting ? (
+              <>
+                <Text style={[s.h2, { marginBottom: 6, color: colors.danger }]}>Confirm with your PIN</Text>
+                <Text style={[s.muted, { marginBottom: 14 }]}>You need internet for this. Once deleted, the records cannot be brought back.</Text>
+                <Input label="Owner PIN" value={deleting.pin} onChangeText={(pin) => setDeleting((d) => ({ ...d, pin }))} keyboardType="number-pad" secureTextEntry maxLength={6} autoFocus />
+                {deleting.error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{deleting.error}</Text> : null}
+                <Button title="Delete everything" variant="danger" onPress={confirmDelete} loading={deleting.loading} disabled={deleting.pin.length < 4} />
+                <Button title="Cancel" variant="ghost" onPress={() => setDeleting(null)} style={{ marginTop: 6 }} />
+              </>
+            ) : null}
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

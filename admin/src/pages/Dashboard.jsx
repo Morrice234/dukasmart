@@ -33,6 +33,8 @@ export default function Dashboard() {
         <Stat label="Referral sign-ups this month" value={stats.referralSignupsMonth} />
         <Stat label="Referrals that paid" value={stats.referralConversions} />
         <Stat label="Agent payouts owed" value={ksh(stats.pendingPayouts)} accent={stats.pendingPayouts > 0} />
+        <Stat label="SMS sent this month" value={stats.smsSentMonth || 0} />
+        <Stat label="SMS cost this month" value={ksh(stats.smsCostMonth || 0)} />
       </div>
       <div className="card">
         <h3>Sign-ups, last 14 days</h3>

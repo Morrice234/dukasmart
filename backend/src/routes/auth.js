@@ -8,6 +8,7 @@ const { requireUser } = require('../middleware/auth');
 const { uniqueCode, resolveCode, recordReferral } = require('../services/referrals');
 const { getSettings } = require('../services/settings');
 const { getLimits } = require('../services/limits');
+const { deleteBusiness } = require('../services/accounts');
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
@@ -67,10 +68,11 @@ router.post('/register', limiter, async (req, res) => {
   const business = await transaction(async (client) => {
     const code = await uniqueCode(client);
     const b = (await client.query(
-      `INSERT INTO businesses (name, owner_name, phone, pin_hash, business_type, location, trial_ends_at, referral_code)
-       VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(days => $7), $8)
+      `INSERT INTO businesses (name, owner_name, phone, pin_hash, business_type, location, trial_ends_at, referral_code, sms_credits)
+       VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(days => $7), $8, $9)
        RETURNING *`,
-      [String(businessName).trim(), ownerName || null, normalized, pinHash, businessType || 'duka', location || null, trialDays, code]
+      [String(businessName).trim(), ownerName || null, normalized, pinHash, businessType || 'duka', location || null, trialDays, code,
+        Math.max(0, Number(settings.trial_sms_credits) || 0)]
     )).rows[0];
 
     const now = Date.now();
@@ -127,6 +129,17 @@ router.patch('/me', requireUser, async (req, res) => {
     [req.business.id, businessName || null, ownerName || null, location || null]
   );
   res.json(await sessionPayload(rows[0], null));
+});
+
+// Owner deletes their own account and all business data (required by Google Play).
+// Body: { pin } to confirm it is really the owner.
+router.post('/delete-account', limiter, requireUser, async (req, res) => {
+  if (req.role !== 'owner') throw new HttpError(403, 'Only the business owner can delete the account');
+  const ok = await bcrypt.compare(String((req.body && req.body.pin) || ''), req.business.pin_hash);
+  if (!ok) throw new HttpError(401, 'Wrong PIN');
+  const deleted = await transaction((client) => deleteBusiness(client, req.business.id));
+  console.log(`Business deleted by owner: ${deleted.name} (${deleted.phone})`);
+  res.json({ ok: true });
 });
 
 module.exports = router;

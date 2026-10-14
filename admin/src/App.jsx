@@ -17,10 +17,16 @@ const PAGES = {
   plans: { label: 'Plans', component: Plans },
 };
 
+// /privacy and /delete-account are public. If they ever reach the admin app, send them to the static page.
+const PUBLIC_PATHS = { '/privacy': '/privacy.html', '/delete-account': '/privacy.html#delete-account' };
+const publicTarget = PUBLIC_PATHS[window.location.pathname.replace(/\/+$/, '')];
+if (publicTarget) window.location.replace(publicTarget);
+
 export default function App() {
   const [token, setTok] = useState(getToken());
   const [page, setPage] = useState('dashboard');
 
+  if (publicTarget) return null;
   if (!token) return <Login onLogin={(t) => { setToken(t); setTok(t); }} />;
 
   const Page = PAGES[page].component;

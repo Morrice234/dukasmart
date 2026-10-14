@@ -2,6 +2,9 @@ import * as SecureStore from 'expo-secure-store';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
+// Public privacy policy page, opened from the Account tab and the sign-up screen
+export const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || 'https://dukasmart-admin.netlify.app/privacy.html';
+
 let token = null;
 
 export async function loadToken() {

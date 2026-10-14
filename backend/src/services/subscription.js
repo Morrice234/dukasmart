@@ -14,6 +14,7 @@ async function activatePayment(client, paymentId, receipt, resultDesc) {
 
   const plan = (await client.query('SELECT * FROM plans WHERE code = $1', [payment.plan_code])).rows[0];
   await extendSubscription(client, payment.business_id, payment.plan_code, plan.duration_days);
+  await addSmsCredits(client, payment.business_id, plan.sms_credits);
   await require('./referrals').onPaymentSuccess(client, payment);
   return true;
 }
@@ -29,6 +30,13 @@ async function extendSubscription(client, businessId, planCode, days) {
   );
 }
 
+// Each payment tops up the SMS reminders the plan includes. Unused ones carry over.
+async function addSmsCredits(client, businessId, amount) {
+  const n = Math.round(Number(amount) || 0);
+  if (!n) return;
+  await client.query('UPDATE businesses SET sms_credits = GREATEST(0, sms_credits + $2) WHERE id = $1', [businessId, n]);
+}
+
 async function failPayment(client, paymentId, status, resultDesc) {
   await client.query(
     `UPDATE payments SET status = $2, result_desc = $3, updated_at = now()
@@ -37,4 +45,4 @@ async function failPayment(client, paymentId, status, resultDesc) {
   );
 }
 
-module.exports = { activatePayment, extendSubscription, failPayment };
+module.exports = { activatePayment, extendSubscription, addSmsCredits, failPayment };

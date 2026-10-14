@@ -73,6 +73,8 @@ function BusinessDrawer({ id, onClose, onChanged }) {
   const [trialDays, setTrialDays] = useState(7);
   const [attachCode, setAttachCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [newPin, setNewPin] = useState(null);
+  const [smsAmount, setSmsAmount] = useState(20); // { who, phone, pin } shown after a reset
 
   const load = useCallback(() => api(`/businesses/${id}`).then(setData), [id]);
   useEffect(() => {
@@ -83,6 +85,27 @@ function BusinessDrawer({ id, onClose, onChanged }) {
   async function act(fn) {
     setBusy(true);
     try { await fn(); await load(); onChanged(); } catch (e) { alert(e.message); } finally { setBusy(false); }
+  }
+
+  // Owner or staff forgot their PIN: set a temporary one and show it so you can tell them
+  async function resetPin(path, who) {
+    if (!confirm(`Set a new PIN for ${who}? Only do this after confirming it is really them, for example by calling the phone number on the account.`)) return;
+    setBusy(true);
+    try {
+      const r = await api(path, { method: 'POST' });
+      setNewPin({ who, phone: r.phone, pin: r.pin });
+    } catch (e) { alert(e.message); } finally { setBusy(false); }
+  }
+
+  async function deleteForever() {
+    const typed = prompt(`This permanently deletes ${data.business.name} and ALL its sales, expenses, deni, stock, staff and payment records. It cannot be undone.\n\nType the business name exactly to confirm:`);
+    if (typed === null) return;
+    setBusy(true);
+    try {
+      await api(`/businesses/${id}`, { method: 'DELETE', body: { confirmName: typed.trim() } });
+      onChanged();
+      onClose();
+    } catch (e) { alert(e.message); } finally { setBusy(false); }
   }
 
   if (!data) return <div className="drawer-bg" onClick={onClose}><div className="drawer" onClick={(e) => e.stopPropagation()}>Loading...</div></div>;
@@ -123,7 +146,10 @@ function BusinessDrawer({ id, onClose, onChanged }) {
           {data.employees.map((e) => (
             <React.Fragment key={e.id}>
               <span>{e.role}</span>
-              <span>{e.name} · {e.phone}{e.is_active ? '' : ' (off)'}{e.last_seen_at ? ` · seen ${dateTime(e.last_seen_at)}` : ''}</span>
+              <span>
+                {e.name} · {e.phone}{e.is_active ? '' : ' (off)'}{e.last_seen_at ? ` · seen ${dateTime(e.last_seen_at)}` : ''}{' '}
+                <button className="link-btn" disabled={busy} onClick={() => resetPin(`/employees/${e.id}/reset-pin`, e.name)}>Reset PIN</button>
+              </span>
             </React.Fragment>
           ))}
           {!data.employees.length && <><span>Staff</span><span className="muted">None</span></>}
@@ -136,9 +162,29 @@ function BusinessDrawer({ id, onClose, onChanged }) {
           <span>Customers</span><span>{data.usage.customers}</span>
           <span>Deni entries</span><span>{data.usage.debt_entries}</span>
           <span>Products</span><span>{data.usage.products}</span>
+          <span>SMS left</span><span>{b.smsCredits}</span>
+          <span>SMS sent</span><span>{data.sms ? `${data.sms.sent} messages (${data.sms.used} SMS)${data.sms.last_sent ? `, last ${dateTime(data.sms.last_sent)}` : ''}` : '-'}</span>
         </div>
 
         <h3>Actions</h3>
+        {newPin && (
+          <div className="pin-box">
+            <div>New PIN for <strong>{newPin.who}</strong> ({newPin.phone}):</div>
+            <div className="pin">{newPin.pin}</div>
+            <div className="muted small">Tell them this PIN by phone call. It is shown only once. They sign in with their phone number and this PIN.</div>
+            <button className="btn small ghost" onClick={() => setNewPin(null)}>Done</button>
+          </div>
+        )}
+        <div className="action">
+          <span>Owner forgot their PIN</span>
+          <button className="btn small" disabled={busy} onClick={() => resetPin(`/businesses/${id}/reset-pin`, `${b.ownerName || b.name} (owner)`)}>Reset owner PIN</button>
+        </div>
+        <div className="action">
+          <span>Give SMS reminders</span>
+          <input type="number" value={smsAmount} onChange={(e) => setSmsAmount(e.target.value)} style={{ width: 70 }} />
+          <button className="btn small" disabled={busy || !Number(smsAmount)} onClick={() => act(() => api(`/businesses/${id}/sms-credits`, { method: 'POST', body: { amount: Number(smsAmount) } }))}>Add</button>
+          <span className="muted small">Use a minus number to take some back</span>
+        </div>
         <div className="action">
           <span>Extend trial by</span>
           <input type="number" min="1" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} style={{ width: 70 }} />
@@ -158,6 +204,10 @@ function BusinessDrawer({ id, onClose, onChanged }) {
           {b.status === 'active'
             ? <button className="btn danger small" disabled={busy} onClick={() => confirm('Suspend this business?') && act(() => api(`/businesses/${id}`, { method: 'PATCH', body: { status: 'suspended' } }))}>Suspend account</button>
             : <button className="btn small" disabled={busy} onClick={() => act(() => api(`/businesses/${id}`, { method: 'PATCH', body: { status: 'active' } }))}>Reactivate account</button>}
+        </div>
+        <div className="action">
+          <span className="muted small">Shop asked for its data to be deleted?</span>
+          <button className="btn small danger" disabled={busy} onClick={deleteForever}>Delete business permanently</button>
         </div>
 
         <h3>Payments</h3>

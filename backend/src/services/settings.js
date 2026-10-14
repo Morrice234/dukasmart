@@ -5,6 +5,7 @@ const DEFAULTS = {
   referee_bonus_trial_days: 7,
   agent_conversion_cash: 100,
   agent_recurring_cash: 0,
+  trial_sms_credits: 5,
 };
 
 async function getSettings(db = { query }) {

@@ -132,7 +132,7 @@ export default function Subscribe() {
                   {money(p.price_kes)}<Text style={s.muted}> / {p.duration_days} days</Text>
                 </Text>
               </View>
-              {features.map((f) => (
+              {[...features, ...(p.sms_credits ? [`${p.sms_credits} SMS reminders to customers who owe`] : [])].map((f) => (
                 <View key={f} style={[s.row, { marginTop: 6 }]}>
                   <Ionicons name="checkmark" size={16} color={colors.primary} />
                   <Text style={{ marginLeft: 6, color: colors.text }}>{f}</Text>

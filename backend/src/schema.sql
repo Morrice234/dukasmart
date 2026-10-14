@@ -308,3 +308,34 @@ CREATE TABLE IF NOT EXISTS lead_notes (
   author      TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============ v4: SMS reminders ============
+
+-- SMS each plan gives per payment. Set once when the column is first added; edit them in the admin panel after that.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'sms_credits') THEN
+    ALTER TABLE plans ADD COLUMN sms_credits INTEGER NOT NULL DEFAULT 0;
+    UPDATE plans SET sms_credits = CASE code WHEN 'basic' THEN 20 WHEN 'business' THEN 50 ELSE 0 END;
+  END IF;
+END $$;
+
+-- SMS a business has left. Unused SMS carry over while they keep paying.
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS sms_credits INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS sms_messages (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id  UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  customer_id  UUID,
+  employee_id  UUID,
+  phone        TEXT NOT NULL,
+  message      TEXT NOT NULL,
+  segments     INTEGER NOT NULL DEFAULT 1,
+  status       TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'simulated')),
+  provider_id  TEXT,
+  cost         TEXT,
+  error        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS sms_messages_business_idx ON sms_messages (business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS sms_messages_month_idx ON sms_messages (created_at);

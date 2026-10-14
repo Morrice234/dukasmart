@@ -36,6 +36,7 @@ app.use('/api/sync', require('./routes/sync'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/team', require('./routes/team'));
 app.use('/api/referrals', require('./routes/referrals'));
+app.use('/api/sms', require('./routes/sms'));
 // Payment confirmations from Safaricom. /api/mpesa is kept for payments started before the rename.
 app.use('/api/payhook', require('./routes/mpesa'));
 app.use('/api/mpesa', require('./routes/mpesa'));
@@ -51,4 +52,7 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 4000);
-app.listen(port, () => console.log(`DukaSmart API running on port ${port}`));
+// Brings the database up to date on start, so a new deploy never needs a manual "npm run migrate"
+require('./scripts/autoMigrate')()
+  .catch((err) => console.error('Database update failed. Run "npm run migrate" to see why.', err.message))
+  .finally(() => app.listen(port, () => console.log(`DukaSmart API running on port ${port}`)));

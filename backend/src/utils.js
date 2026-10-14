@@ -38,6 +38,7 @@ function publicBusiness(b) {
     subscriptionEndsAt: b.subscription_ends_at,
     planCode: b.plan_code,
     referralCode: b.referral_code,
+    smsCredits: b.sms_credits || 0,
     createdAt: b.created_at,
     subscription: subscriptionInfo(b),
   };

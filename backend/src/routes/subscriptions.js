@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get('/plans', async (req, res) => {
   const { rows } = await query(
-    'SELECT code, name, price_kes, duration_days, features FROM plans WHERE is_active ORDER BY sort_order, price_kes'
+    'SELECT code, name, price_kes, duration_days, features, sms_credits FROM plans WHERE is_active ORDER BY sort_order, price_kes'
   );
   res.json({ plans: rows, trialDays: Number(process.env.TRIAL_DAYS || 7) });
 });

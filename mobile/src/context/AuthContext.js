@@ -27,6 +27,8 @@ export function permissionsFor(role) {
     canManageBranches: role === 'owner',
     canPay: role === 'owner',
     canSeeAllStaff: role !== 'cashier',
+    canExport: role !== 'cashier',
+    canSendSms: role !== 'cashier',
   };
 }
 
