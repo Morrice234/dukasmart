@@ -22,8 +22,12 @@ function publicEmployee(e) {
 }
 
 async function sessionPayload(business, employee) {
+  const till = (await query(
+    `SELECT till_number, shortcode, passkey IS NOT NULL AS stk FROM till_connections WHERE business_id = $1 AND status IN ('active', 'pending')`, [business.id]
+  )).rows[0];
   return {
-    business: publicBusiness(business),
+    // tillConnected tells the app that M-Pesa till payments are recorded on their own
+    business: { ...publicBusiness(business), tillConnected: Boolean(till), tillNumber: till ? (till.till_number || till.shortcode) : null, stkEnabled: Boolean(till && till.stk) },
     employee: publicEmployee(employee),
     role: employee ? employee.role : 'owner',
     limits: await getLimits({ query }, business),

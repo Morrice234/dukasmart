@@ -6,6 +6,7 @@ const { query, transaction } = require('../db');
 const { HttpError, publicBusiness } = require('../utils');
 const { requireAdmin } = require('../middleware/auth');
 const { extendSubscription, addSmsCredits } = require('../services/subscription');
+const till = require('../services/till');
 const { onPaymentSuccess } = require('../services/referrals');
 const { temporaryPin, hashPin, deleteBusiness } = require('../services/accounts');
 
@@ -169,6 +170,88 @@ router.delete('/businesses/:id', async (req, res) => {
   const deleted = await transaction((client) => deleteBusiness(client, req.params.id));
   console.log(`Business deleted: ${deleted.name} (${deleted.phone}) by ${req.admin.email}`);
   res.json({ ok: true });
+});
+
+// ---- M-Pesa till connection (payments recorded as sales automatically) ----
+
+router.get('/businesses/:id/till', async (req, res) => {
+  const conn = (await query('SELECT * FROM till_connections WHERE business_id = $1', [req.params.id])).rows[0];
+  const payments = (await query(
+    `SELECT trans_id, amount::float AS amount, payer_name, paid_at FROM till_payments
+      WHERE business_id = $1 ORDER BY paid_at DESC LIMIT 10`, [req.params.id])).rows;
+  res.json({
+    connection: till.publicConnection(conn),
+    payments,
+    callbackBase: conn ? till.callbackUrls(conn).confirmation : null,
+    publicBaseUrl: process.env.PUBLIC_BASE_URL || null,
+  });
+});
+
+// Body: { environment, shortcode, tillNumber, branchId, consumerKey?, consumerSecret? }
+// Saves the till and registers its payment link with Safaricom. Leave the key and secret empty to keep the saved ones.
+router.put('/businesses/:id/till', async (req, res) => {
+  const b = (await query('SELECT id FROM businesses WHERE id = $1', [req.params.id])).rows[0];
+  if (!b) throw new HttpError(404, 'Business not found');
+  const { environment = 'production', kind = 'till', shortcode, tillNumber, branchId, consumerKey, consumerSecret, passkey, removePasskey } = req.body || {};
+  if (!['till', 'paybill'].includes(kind)) throw new HttpError(400, 'Choose till or paybill');
+  if (!['sandbox', 'production'].includes(environment)) throw new HttpError(400, 'Choose sandbox or production');
+  if (!/^\d{5,8}$/.test(String(shortcode || '').trim())) throw new HttpError(400, 'Enter the store number (or paybill) as digits');
+  if (!/^https:\/\//.test(process.env.PUBLIC_BASE_URL || '') && environment === 'production') {
+    throw new HttpError(400, 'PUBLIC_BASE_URL on the server must be your https address before a live till can be connected');
+  }
+  if (branchId) {
+    const ok = (await query('SELECT 1 FROM branches WHERE id = $1 AND business_id = $2 AND NOT deleted', [branchId, b.id])).rows[0];
+    if (!ok) throw new HttpError(400, 'That branch does not belong to this business');
+  }
+
+  const existing = (await query('SELECT * FROM till_connections WHERE business_id = $1', [b.id])).rows[0];
+  if (!existing && (!consumerKey || !consumerSecret)) throw new HttpError(400, 'Enter the consumer key and secret from the till\'s Daraja app');
+  const k = consumerKey ? till.encrypt(String(consumerKey).trim()) : existing.consumer_key;
+  const s = consumerSecret ? till.encrypt(String(consumerSecret).trim()) : existing.consumer_secret;
+  const p = passkey ? till.encrypt(String(passkey).trim()) : (removePasskey ? null : (existing ? existing.passkey : null));
+
+  let conn = (await query(
+    `INSERT INTO till_connections (business_id, branch_id, environment, shortcode, till_number, consumer_key, consumer_secret, callback_token, status, kind, passkey)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)
+     ON CONFLICT (business_id) DO UPDATE SET branch_id = $2, environment = $3, shortcode = $4, till_number = $5,
+            consumer_key = $6, consumer_secret = $7, status = 'pending', last_error = NULL, kind = $9, passkey = $10, updated_at = now()
+     RETURNING *`,
+    [b.id, branchId || null, environment, String(shortcode).trim(), tillNumber ? String(tillNumber).trim() : null, k, s,
+      require('crypto').randomBytes(24).toString('hex'), kind, p]
+  )).rows[0];
+
+  try {
+    await till.registerUrls(conn);
+    conn = (await query(`UPDATE till_connections SET status = 'active', registered_at = now(), last_error = NULL WHERE id = $1 RETURNING *`, [conn.id])).rows[0];
+    console.log(`Till ${conn.shortcode} connected for business ${b.id} by ${req.admin.email}`);
+  } catch (e) {
+    // Safaricom refuses to register a shortcode twice. Payments may still come if the earlier registration pointed here.
+    const already = /duplicate|already/i.test(e.message);
+    const note = already
+      ? 'Safaricom says this till was already registered. If no payments arrive after a test payment, ask Safaricom (apisupport@safaricom.co.ke) to delete the old URLs, then save again.'
+      : e.message;
+    conn = (await query(`UPDATE till_connections SET status = $3, last_error = $2 WHERE id = $1 RETURNING *`,
+      [conn.id, note, already ? 'pending' : 'failed'])).rows[0];
+  }
+  res.json({ connection: till.publicConnection(conn) });
+});
+
+// Keeps the settings but ignores payments until it is connected again
+router.post('/businesses/:id/till/disable', async (req, res) => {
+  const { rows } = await query(`UPDATE till_connections SET status = 'disabled', updated_at = now() WHERE business_id = $1 RETURNING *`, [req.params.id]);
+  if (!rows[0]) throw new HttpError(404, 'No till connected');
+  res.json({ connection: till.publicConnection(rows[0]) });
+});
+
+// Sandbox only. Body: { amount }
+router.post('/businesses/:id/till/simulate', async (req, res) => {
+  const conn = (await query('SELECT * FROM till_connections WHERE business_id = $1', [req.params.id])).rows[0];
+  if (!conn) throw new HttpError(404, 'No till connected');
+  try {
+    res.json({ result: await till.simulate(conn, (req.body || {}).amount) });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
 });
 
 // Give (or take back, with a negative number) SMS reminders. Body: { amount }

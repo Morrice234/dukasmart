@@ -148,6 +148,14 @@ export default function Account() {
         </Card>
 
         {permissions.canExport ? (
+          <LinkRow
+            icon="phone-portrait-outline"
+            title="M-Pesa payments"
+            subtitle={business.tillConnected ? `Till ${business.tillNumber} records sales by itself` : 'Record till payments automatically'}
+            onPress={() => router.push('/till')}
+          />
+        ) : null}
+        {permissions.canExport ? (
           <LinkRow icon="download-outline" title="Export records" subtitle="Sales, expenses, deni and stock to Excel (CSV)" onPress={() => router.push('/export')} />
         ) : null}
         <LinkRow icon="shield-checkmark-outline" title="Privacy policy" subtitle="How we handle your data" onPress={() => Linking.openURL(PRIVACY_URL)} />

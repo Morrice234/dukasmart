@@ -339,3 +339,78 @@ CREATE TABLE IF NOT EXISTS sms_messages (
 );
 CREATE INDEX IF NOT EXISTS sms_messages_business_idx ON sms_messages (business_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS sms_messages_month_idx ON sms_messages (created_at);
+
+-- ============ v5: M-Pesa till payments recorded automatically ============
+
+-- A shop's own till, taken live on Daraja with the shop's own credentials (Safaricom only sends a till's
+-- payments to an app that belongs to that till). Secrets are stored encrypted.
+CREATE TABLE IF NOT EXISTS till_connections (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id      UUID NOT NULL UNIQUE REFERENCES businesses(id) ON DELETE CASCADE,
+  branch_id        UUID,
+  environment      TEXT NOT NULL DEFAULT 'production' CHECK (environment IN ('sandbox', 'production')),
+  shortcode        TEXT NOT NULL,          -- what was registered: the store number for a till, or the paybill
+  till_number      TEXT,                   -- what customers pay to, shown in the app
+  consumer_key     TEXT NOT NULL,          -- encrypted
+  consumer_secret  TEXT NOT NULL,          -- encrypted
+  callback_token   TEXT NOT NULL UNIQUE,
+  status           TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'failed', 'disabled')),
+  last_error       TEXT,
+  registered_at    TIMESTAMPTZ,
+  last_payment_at  TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Every confirmation Safaricom sends, kept as received. The sale it created has an id made from the
+-- M-Pesa code, so a repeated callback or a pasted SMS of the same payment never counts twice.
+CREATE TABLE IF NOT EXISTS till_payments (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id  UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  trans_id     TEXT NOT NULL,
+  amount       NUMERIC(14,2) NOT NULL,
+  payer_name   TEXT,
+  payer_phone  TEXT,                       -- Safaricom masks or hashes this
+  bill_ref     TEXT,
+  shortcode    TEXT,
+  paid_at      BIGINT NOT NULL,
+  sale_id      UUID,
+  raw          JSONB,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, trans_id)
+);
+CREATE INDEX IF NOT EXISTS till_payments_business_idx ON till_payments (business_id, paid_at DESC);
+
+-- ============ v6: M-Pesa payment prompts sent from the shop's own till ============
+
+ALTER TABLE till_connections ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'till';
+ALTER TABLE till_connections ADD COLUMN IF NOT EXISTS passkey TEXT;   -- encrypted; needed for payment prompts
+
+-- A payment prompt sent to a customer's phone at the counter or for a deni balance.
+-- record_id is the sale or deni payment it created; the M-Pesa receipt links it to the till notification
+-- for the same money, so it is only ever counted once.
+CREATE TABLE IF NOT EXISTS payment_requests (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id          UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  employee_id          UUID,
+  branch_id            UUID,
+  purpose              TEXT NOT NULL CHECK (purpose IN ('sale', 'deni')),
+  customer_id          UUID,
+  phone                TEXT NOT NULL,
+  amount               INTEGER NOT NULL,
+  merchant_request_id  TEXT,
+  checkout_request_id  TEXT UNIQUE,
+  status               TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'cancelled')),
+  receipt              TEXT,
+  result_desc          TEXT,
+  record_id            UUID,
+  last_checked_at      TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payment_requests_business_idx ON payment_requests (business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS payment_requests_receipt_idx ON payment_requests (business_id, receipt);
+
+-- ============ v7: product barcodes / QR codes ============
+ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;
+CREATE INDEX IF NOT EXISTS products_barcode_idx ON products (business_id, barcode) WHERE barcode IS NOT NULL AND barcode <> '';

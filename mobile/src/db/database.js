@@ -5,7 +5,7 @@ import { emit } from '../events';
 // Fields per synced table, must match the server's sync route. Branches first.
 export const SYNC_TABLES = {
   branches: ['name', 'location'],
-  products: ['name', 'unit', 'buy_price', 'sell_price', 'reorder_level', 'created_by'],
+  products: ['name', 'unit', 'buy_price', 'sell_price', 'reorder_level', 'created_by', 'barcode'],
   customers: ['name', 'phone', 'notes', 'branch_id', 'created_by'],
   sales: ['amount', 'method', 'description', 'customer_id', 'occurred_at', 'branch_id', 'created_by'],
   expenses: ['amount', 'method', 'category', 'description', 'occurred_at', 'branch_id', 'created_by'],
@@ -46,6 +46,9 @@ const MIGRATIONS = [
    CREATE TABLE IF NOT EXISTS stock_movements (${BASE_COLS}, product_id TEXT NOT NULL, type TEXT NOT NULL, quantity REAL NOT NULL, unit_cost REAL, sale_id TEXT, expense_id TEXT, note TEXT, occurred_at INTEGER NOT NULL, branch_id TEXT, created_by TEXT);
    CREATE INDEX IF NOT EXISTS stock_product_branch ON stock_movements (product_id, branch_id);
    CREATE INDEX IF NOT EXISTS stock_sale ON stock_movements (sale_id);`,
+  // v4: barcodes and QR codes on products
+  `ALTER TABLE products ADD COLUMN barcode TEXT;
+   CREATE INDEX IF NOT EXISTS products_barcode ON products (barcode);`,
 ];
 
 let dbPromise = null;

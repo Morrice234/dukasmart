@@ -118,8 +118,8 @@ async function rowsFor(kind, { branchId, from, to, names }) {
       `SELECT p.*, ${qty} AS qty FROM products p WHERE p.deleted = 0 ORDER BY p.name COLLATE NOCASE`,
       branchId ? [branchId] : []
     );
-    return [['Product', 'Unit', 'Quantity', 'Buying price (KSh)', 'Selling price (KSh)', 'Stock value at buying price (KSh)', 'Reorder level'],
-      rows.map((r) => [r.name, r.unit || '', num(r.qty), num(r.buy_price), num(r.sell_price),
+    return [['Product', 'Barcode', 'Unit', 'Quantity', 'Buying price (KSh)', 'Selling price (KSh)', 'Stock value at buying price (KSh)', 'Reorder level'],
+      rows.map((r) => [r.name, r.barcode || '', r.unit || '', num(r.qty), num(r.buy_price), num(r.sell_price),
         r.buy_price ? num(r.qty * r.buy_price) : '', num(r.reorder_level)])];
   }
 

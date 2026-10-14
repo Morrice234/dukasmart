@@ -10,7 +10,7 @@ const router = express.Router();
 // Branches and products go first so records that point at them arrive after them.
 const TABLES = {
   branches: ['name', 'location'],
-  products: ['name', 'unit', 'buy_price', 'sell_price', 'reorder_level'],
+  products: ['name', 'unit', 'buy_price', 'sell_price', 'reorder_level', 'barcode'],
   customers: ['name', 'phone', 'notes', 'branch_id'],
   sales: ['amount', 'method', 'description', 'customer_id', 'occurred_at', 'branch_id'],
   expenses: ['amount', 'method', 'category', 'description', 'occurred_at', 'branch_id'],
@@ -33,7 +33,10 @@ function upsertSql(table) {
     INSERT INTO ${table} (${cols.join(', ')})
     VALUES (${cols.map((_, i) => `$${i + 1}`).join(', ')})
     ON CONFLICT (id) DO UPDATE SET
-      ${updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')},
+      ${updateCols.map((c) => (c === 'barcode'
+        // Older app versions do not send barcodes; keep the saved one instead of wiping it. Empty text clears it.
+        ? `barcode = COALESCE(EXCLUDED.barcode, ${table}.barcode)`
+        : `${c} = EXCLUDED.${c}`)).join(', ')},
       version = nextval('sync_version_seq')
     WHERE ${table}.business_id = EXCLUDED.business_id
       AND ${table}.updated_at < EXCLUDED.updated_at`;

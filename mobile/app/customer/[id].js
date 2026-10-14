@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Alert, FlatList, Linking, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import EntrySheet from '../../src/components/EntrySheet';
 import SmsSheet from '../../src/components/SmsSheet';
-import { Button, Card, Empty, s } from '../../src/components/ui';
+import PayPrompt from '../../src/components/PayPrompt';
+import { syncNow } from '../../src/sync/syncEngine';
+import { Button, Card, Empty, Input, s } from '../../src/components/ui';
 import { colors } from '../../src/theme';
 import { useLiveQuery } from '../../src/hooks/useData';
 import { customerEntries, getCustomer } from '../../src/db/queries';
@@ -19,8 +22,16 @@ export default function CustomerScreen() {
   const entries = useLiveQuery(() => customerEntries(id), [id]) || [];
   const [sheet, setSheet] = useState(null); // { type, entry }
   const [smsOpen, setSmsOpen] = useState(false);
+  const [collect, setCollect] = useState(null); // { amount: text, paying: bool } while asking for M-Pesa payment
+  const insets = useSafeAreaInsets();
 
   if (!customer) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+
+  function openCollect() {
+    if (!subscription.active) { router.push('/subscribe'); return; }
+    syncNow(); // the server needs this customer before it can record their payment
+    setCollect({ amount: String(Math.ceil(customer.balance)), paying: false });
+  }
 
   function open(type, entry = null) {
     if (!subscription.active) { router.push('/subscribe'); return; }
@@ -81,6 +92,9 @@ export default function CustomerScreen() {
               <Button title="Give deni" icon="arrow-up" variant="outline" style={{ flex: 1, marginRight: 6 }} onPress={() => open('credit')} />
               <Button title="Record payment" icon="arrow-down" style={{ flex: 1, marginLeft: 6 }} onPress={() => open('payment')} />
             </View>
+            {business && business.stkEnabled && customer.balance > 0 ? (
+              <Button title="Request payment by M-Pesa" icon="phone-portrait-outline" onPress={openCollect} style={{ marginBottom: 8 }} />
+            ) : null}
             {customer.phone && customer.balance > 0 ? (
               permissions.canSendSms ? (
                 <Button title="Send SMS reminder" icon="chatbubble-outline" variant="ghost" onPress={() => (subscription.active ? setSmsOpen(true) : router.push('/subscribe'))} style={{ marginBottom: 8 }} />
@@ -106,6 +120,30 @@ export default function CustomerScreen() {
           </Pressable>
         )}
       />
+      <Modal visible={Boolean(collect)} transparent animationType="slide" onRequestClose={() => setCollect(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <ScrollView style={{ backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '92%' }} contentContainerStyle={{ padding: 20, paddingBottom: 20 + insets.bottom }} keyboardShouldPersistTaps="handled">
+            <Text style={[s.h2, { marginBottom: 12 }]}>Collect deni from {customer.name}</Text>
+            {collect && collect.paying ? (
+              <PayPrompt
+                amount={Number(collect.amount)}
+                purpose="deni"
+                customerId={customer.id}
+                defaultPhone={customer.phone || ''}
+                onPaid={async () => { await syncNow(); setTimeout(() => setCollect(null), 1500); }}
+                onCancel={() => setCollect((c) => ({ ...c, paying: false }))}
+              />
+            ) : collect ? (
+              <>
+                <Input label="Amount to collect (KSh)" value={collect.amount} onChangeText={(t) => setCollect((c) => ({ ...c, amount: t.replace(/[^0-9]/g, '') }))} keyboardType="number-pad" />
+                <Text style={[s.muted, { marginTop: -6, marginBottom: 12 }]}>Balance is {money(customer.balance)}. They can pay part of it.</Text>
+                <Button title="Next" onPress={() => setCollect((c) => ({ ...c, paying: true }))} disabled={!(Number(collect.amount) >= 1)} />
+                <Button title="Cancel" variant="ghost" onPress={() => setCollect(null)} style={{ marginTop: 6 }} />
+              </>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
       <SmsSheet visible={smsOpen} customers={[customer]} onClose={() => setSmsOpen(false)} />
       <EntrySheet
         visible={Boolean(sheet)}

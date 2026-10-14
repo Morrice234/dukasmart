@@ -122,3 +122,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .link-btn { border: 0; background: none; color: var(--primary); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 0; }
 .pin-box { background: var(--primary-soft); border-radius: 10px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .pin-box .pin { font-size: 32px; font-weight: 800; letter-spacing: 6px; color: var(--primary); }
+
+.till-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.till-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.till-form input, .till-form select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; color: var(--text); }
+.row-buttons { display: flex; gap: 8px; flex-wrap: wrap; }

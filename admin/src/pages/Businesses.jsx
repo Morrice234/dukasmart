@@ -166,6 +166,8 @@ function BusinessDrawer({ id, onClose, onChanged }) {
           <span>SMS sent</span><span>{data.sms ? `${data.sms.sent} messages (${data.sms.used} SMS)${data.sms.last_sent ? `, last ${dateTime(data.sms.last_sent)}` : ''}` : '-'}</span>
         </div>
 
+        <TillPanel businessId={id} branches={data.branches} />
+
         <h3>Actions</h3>
         {newPin && (
           <div className="pin-box">
@@ -226,5 +228,115 @@ function BusinessDrawer({ id, onClose, onChanged }) {
         </table>
       </div>
     </div>
+  );
+}
+
+const TILL_STATUS = {
+  active: ['Connected', 'active'],
+  pending: ['Waiting for first payment', 'trial'],
+  failed: ['Not connected', 'failed'],
+  disabled: ['Paused', 'suspended'],
+};
+
+// Connects the shop's own Lipa na M-Pesa till so every payment becomes a sale in the app
+function TillPanel({ businessId, branches }) {
+  const [info, setInfo] = useState(null);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const load = () => api(`/businesses/${businessId}/till`).then((r) => {
+    setInfo(r);
+    const c = r.connection;
+    setForm({
+      environment: c ? c.environment : 'production',
+      kind: c ? c.kind || 'till' : 'till',
+      passkey: '',
+      shortcode: c ? c.shortcode : '',
+      tillNumber: c ? c.tillNumber || '' : '',
+      branchId: c ? c.branchId || '' : '',
+      consumerKey: '',
+      consumerSecret: '',
+    });
+  }).catch((e) => setMsg(e.message));
+  useEffect(() => { load(); }, [businessId]);
+
+  if (!info || !form) return <><h3>M-Pesa till</h3><p className="muted small">{msg || 'Loading...'}</p></>;
+  const c = info.connection;
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  async function run(fn, done) {
+    setBusy(true); setMsg('');
+    try { const r = await fn(); await load(); if (done) setMsg(done(r)); } catch (e) { setMsg(e.message); } finally { setBusy(false); }
+  }
+
+  const save = (e) => {
+    e.preventDefault();
+    run(() => api(`/businesses/${businessId}/till`, { method: 'PUT', body: form }),
+      (r) => (r.connection.status === 'active' ? 'Connected. Ask the owner to pay KSh 10 to the till to test it.' : r.connection.lastError || 'Saved'));
+  };
+
+  return (
+    <>
+      <h3>M-Pesa till</h3>
+      {c ? (
+        <div className="kv">
+          <span>Status</span><span><span className={`badge ${TILL_STATUS[c.status][1]}`}>{TILL_STATUS[c.status][0]}</span> {c.environment === 'sandbox' ? '(sandbox)' : ''}</span>
+          <span>Till / store</span><span>{c.tillNumber || '-'} / {c.shortcode}</span>
+          <span>Last payment</span><span>{c.lastPaymentAt ? dateTime(c.lastPaymentAt) : 'none yet'}</span>
+          <span>Payment prompts</span><span>{c.stkEnabled ? 'On (staff can send M-Pesa prompts)' : 'Off (add the passkey to turn on)'}</span>
+          {c.lastError ? <><span>Problem</span><span className="error">{c.lastError}</span></> : null}
+        </div>
+      ) : <p className="muted small">Not connected. The owner must first take the till live on Daraja (see the steps in the setup guide), then enter the live app's keys here.</p>}
+
+      <form className="till-form" onSubmit={save}>
+        <label>Environment
+          <select value={form.environment} onChange={set('environment')}>
+            <option value="production">Live (real payments)</option>
+            <option value="sandbox">Sandbox (testing)</option>
+          </select>
+        </label>
+        <label>Type
+          <select value={form.kind} onChange={set('kind')}>
+            <option value="till">Till (Buy Goods)</option>
+            <option value="paybill">Paybill</option>
+          </select>
+        </label>
+        <label>Store number or paybill (the shortcode used on Daraja)<input value={form.shortcode} onChange={set('shortcode')} required placeholder="e.g. 5123456" /></label>
+        <label>Till number customers pay to<input value={form.tillNumber} onChange={set('tillNumber')} placeholder="e.g. 9123456" /></label>
+        {branches.length > 1 ? (
+          <label>Record payments in branch
+            <select value={form.branchId} onChange={set('branchId')}>
+              <option value="">Main branch</option>
+              {branches.map((br) => <option key={br.id} value={br.id}>{br.name}</option>)}
+            </select>
+          </label>
+        ) : null}
+        <label>Consumer key{c ? ' (leave empty to keep the saved one)' : ''}<input value={form.consumerKey} onChange={set('consumerKey')} autoComplete="off" required={!c} /></label>
+        <label>Consumer secret{c ? ' (leave empty to keep the saved one)' : ''}<input type="password" value={form.consumerSecret} onChange={set('consumerSecret')} autoComplete="new-password" required={!c} /></label>
+        <label>M-Pesa Express passkey, for payment prompts (from Safaricom's go-live email){c && c.stkEnabled ? ' (leave empty to keep the saved one)' : ' (optional)'}<input type="password" value={form.passkey} onChange={set('passkey')} autoComplete="new-password" /></label>
+        <div className="row-buttons">
+          <button className="btn small" disabled={busy}>{c ? 'Save and register again' : 'Connect till'}</button>
+          {c && c.environment === 'sandbox' ? (
+            <button type="button" className="btn small ghost" disabled={busy} onClick={() => run(() => api(`/businesses/${businessId}/till/simulate`, { method: 'POST', body: { amount: 10 } }), () => 'Test payment sent. It should appear below in a few seconds; click Refresh.')}>Send test payment</button>
+          ) : null}
+          {c && c.status !== 'disabled' ? (
+            <button type="button" className="btn small ghost" disabled={busy} onClick={() => confirm('Stop recording this till\'s payments?') && run(() => api(`/businesses/${businessId}/till/disable`, { method: 'POST' }), () => 'Paused')}>Pause</button>
+          ) : null}
+          {c ? <button type="button" className="btn small ghost" disabled={busy} onClick={() => run(async () => {}, () => '')}>Refresh</button> : null}
+        </div>
+        {msg ? <p className="small" style={{ marginTop: 8 }}>{msg}</p> : null}
+      </form>
+
+      {info.payments.length ? (
+        <table className="table small">
+          <tbody>
+            {info.payments.map((p) => (
+              <tr key={p.trans_id}><td>{dateTime(Number(p.paid_at))}</td><td>{p.trans_id}</td><td>{p.payer_name || '-'}</td><td>{ksh(p.amount)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+    </>
   );
 }

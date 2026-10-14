@@ -7,6 +7,9 @@ import { colors } from '../../theme';
 import { money } from '../../utils/format';
 import { saveRecord } from '../../db/database';
 import { addMovement, receiveStock, round, sellItems, setCountedStock } from '../../db/stock';
+import PayPrompt from '../PayPrompt';
+import BarcodeScanner from '../BarcodeScanner';
+import { productByBarcode } from '../../db/stock';
 
 export const UNITS = [
   { value: 'pcs', label: 'Pieces' },
@@ -63,8 +66,9 @@ function ErrorText({ text }) {
 
 // ---------- New / edit product ----------
 
-export function ProductSheet({ visible, onClose, product, branchOptions, defaultBranchId, onSaved, onDelete }) {
+export function ProductSheet({ visible, onClose, product, branchOptions, defaultBranchId, onSaved, onDelete, initialBarcode = '' }) {
   const [f, setF] = useState({});
+  const [scanning, setScanning] = useState(false);
   const [branchId, setBranchId] = useState(defaultBranchId);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -79,10 +83,11 @@ export function ProductSheet({ visible, onClose, product, branchOptions, default
       sell: product && product.sell_price != null ? String(product.sell_price) : '',
       reorder: product && product.reorder_level != null ? String(product.reorder_level) : '',
       opening: '',
+      barcode: product ? product.barcode || '' : initialBarcode || '',
     });
     setBranchId(defaultBranchId);
     setError('');
-  }, [visible, product, defaultBranchId]);
+  }, [visible, product, defaultBranchId, initialBarcode]);
 
   async function save() {
     const name = (f.name || '').trim();
@@ -92,11 +97,17 @@ export function ProductSheet({ visible, onClose, product, branchOptions, default
     const opening = f.opening ? num(f.opening) : 0;
     if (!name) { setError('Enter the product name'); return; }
     if ([buy, sell, reorder].some((v) => v !== null && !(v >= 0)) || !(opening >= 0)) { setError('Check the numbers you entered'); return; }
+    const barcode = (f.barcode || '').trim();
+    if (barcode) {
+      const other = await productByBarcode(barcode);
+      if (other && (!product || other.id !== product.id)) { setError(`That code is already on ${other.name}`); return; }
+    }
     setSaving(true);
     try {
       const saved = await saveRecord('products', {
         ...(product ? { id: product.id } : {}),
-        name, unit: f.unit, buy_price: buy, sell_price: sell, reorder_level: reorder,
+        // Empty text (not null) clears a barcode, so the server knows it was removed on purpose
+        name, unit: f.unit, buy_price: buy, sell_price: sell, reorder_level: reorder, barcode,
       });
       if (!product && opening > 0) {
         await addMovement({ productId: saved.id, branchId, type: 'in', quantity: opening, unitCost: buy, note: 'Opening stock' });
@@ -125,6 +136,20 @@ export function ProductSheet({ visible, onClose, product, branchOptions, default
         </Text>
       ) : null}
       <Input label="Warn me when stock falls to (optional)" value={f.reorder} onChangeText={set('reorder')} keyboardType="numeric" placeholder="e.g. 5" />
+      <Text style={s.label}>Barcode or QR code (optional)</Text>
+      <View style={[s.row, { marginBottom: 14 }]}>
+        <TextInput
+          value={f.barcode}
+          onChangeText={set('barcode')}
+          placeholder="Scan or type the number"
+          placeholderTextColor={colors.muted}
+          style={{ flex: 1, height: 48, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, color: colors.text }}
+        />
+        <Pressable onPress={() => setScanning(true)} style={{ marginLeft: 8, width: 48, height: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="barcode-outline" size={24} color="#fff" />
+        </Pressable>
+      </View>
+      <BarcodeScanner visible={scanning} onClose={() => setScanning(false)} onScan={(code) => { set('barcode')(code); return { close: true }; }} title="Scan the product's code" />
       {!product ? (
         <>
           <Input label="How many do you have now? (optional)" value={f.opening} onChangeText={set('opening')} keyboardType="numeric" placeholder="0" />
@@ -233,7 +258,17 @@ export function StockMoveSheet({ visible, onClose, mode, product, currentQty, br
 
 // ---------- Sell from stock (cart) ----------
 
-export function SellSheet({ visible, onClose, products, branchOptions, defaultBranchId, initialProductId }) {
+// With a connected till, "Till" takes the items off stock while the till records the money by itself
+const TILL_METHODS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'till', label: 'Paid to till' },
+  { value: 'mpesa', label: 'M-Pesa, other number' },
+  { value: 'other', label: 'Other' },
+];
+
+export function SellSheet({ visible, onClose, products, branchOptions, defaultBranchId, initialProductId, tillConnected = false, stkEnabled = false }) {
+  const [paying, setPaying] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState({}); // productId -> { qty: text, price: text } as typed
   const [method, setMethod] = useState('cash');
@@ -245,7 +280,7 @@ export function SellSheet({ visible, onClose, products, branchOptions, defaultBr
     if (!visible) return;
     const p = initialProductId && products.find((x) => x.id === initialProductId);
     setCart(p ? { [p.id]: { qty: '1', price: String(p.sell_price || '') } } : {});
-    setSearch(''); setMethod('cash'); setBranchId(defaultBranchId); setError('');
+    setSearch(''); setMethod('cash'); setBranchId(defaultBranchId); setError(''); setPaying(false);
   }, [visible, initialProductId, defaultBranchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byId = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
@@ -253,7 +288,7 @@ export function SellSheet({ visible, onClose, products, branchOptions, defaultBr
     .map(([id, l]) => ({ product: byId[id], qtyText: l.qty, priceText: l.price, qty: num(l.qty), price: num(l.price) }));
   const total = lines.reduce((n, l) => n + (l.qty > 0 ? l.qty : 0) * (l.price >= 0 ? l.price : 0), 0);
   const matches = search.trim()
-    ? products.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
+    ? products.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()) || (p.barcode && p.barcode === search.trim())).slice(0, 8)
     : products.slice(0, 8);
 
   const add = (p) => setCart((c) => ({
@@ -264,6 +299,22 @@ export function SellSheet({ visible, onClose, products, branchOptions, defaultBr
   }));
   const setLine = (id, patch) => setCart((c) => ({ ...c, [id]: { ...c[id], ...patch } }));
   const remove = (id) => setCart((c) => { const n = { ...c }; delete n[id]; return n; });
+
+  function check() {
+    if (!lines.length) { setError('Add at least one item'); return false; }
+    if (lines.some((l) => !(l.qty > 0) || !(l.price >= 0))) { setError('Check quantities and prices'); return false; }
+    if (!(total > 0)) { setError('Total must be more than zero. Set a price for each item.'); return false; }
+    setError('');
+    return true;
+  }
+
+  // The customer paid through the M-Pesa prompt: save the items against the sale the payment created
+  async function paidByPrompt(r) {
+    const items = lines.map(({ product, qty, price }) => ({ product, qty, price }));
+    const what = items.map((i) => `${i.qty} ${i.product.name}`).join(', ');
+    await sellItems({ items, branchId, method: 'mpesa', saleId: r.recordId, amount: r.amount, note: `${what}${r.receipt ? ` (M-Pesa ${r.receipt})` : ''}`.slice(0, 200) });
+    setTimeout(onClose, 1200);
+  }
 
   async function save() {
     if (!lines.length) { setError('Add at least one item'); return; }
@@ -281,12 +332,31 @@ export function SellSheet({ visible, onClose, products, branchOptions, defaultBr
   }
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Sell from stock">
+    <Sheet visible={visible} onClose={onClose} title={paying ? 'M-Pesa payment' : 'Sell from stock'}>
+      {paying ? (
+        <PayPrompt amount={total} purpose="sale" branchId={branchId} onPaid={paidByPrompt} onCancel={() => setPaying(false)} />
+      ) : (<>
       <BranchPicker branchOptions={branchOptions} value={branchId} onChange={setBranchId} />
       <View style={[s.row, { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, marginBottom: 8 }]}>
         <Ionicons name="search" size={18} color={colors.muted} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Find product" placeholderTextColor={colors.muted} style={{ flex: 1, height: 44, marginLeft: 8, color: colors.text }} />
+        <TextInput value={search} onChangeText={setSearch} placeholder="Find product or scan" placeholderTextColor={colors.muted} style={{ flex: 1, height: 44, marginLeft: 8, color: colors.text }} />
+        <Pressable onPress={() => setScanning(true)} hitSlop={10} style={{ paddingLeft: 8 }}>
+          <Ionicons name="barcode-outline" size={26} color={colors.primary} />
+        </Pressable>
       </View>
+      <BarcodeScanner
+        visible={scanning}
+        continuous
+        title="Scan items"
+        onClose={() => setScanning(false)}
+        onScan={(code) => {
+          const p = products.find((x) => x.barcode && x.barcode === code);
+          if (!p) return { error: `Not in your products (${code}). Add it in Stock first.` };
+          add(p);
+          const n = round((num((cart[p.id] || {}).qty) || 0) + 1);
+          return { message: `${p.name} x${n}${p.sell_price != null ? ` · ${money(p.sell_price)}` : ''}` };
+        }}
+      />
       <View style={[s.row, { flexWrap: 'wrap', marginBottom: 12 }]}>
         {matches.map((p) => (
           <Pressable key={p.id} onPress={() => add(p)} style={[s.chip, { flexDirection: 'row', alignItems: 'center' }]}>
@@ -336,11 +406,18 @@ export function SellSheet({ visible, onClose, products, branchOptions, defaultBr
             <Text style={{ fontSize: 22, fontWeight: '800', color: colors.primaryDark }}>{money(total)}</Text>
           </View>
           <Text style={s.label}>Paid by</Text>
-          <Chips options={METHODS} value={method} onChange={setMethod} />
+          <Chips options={tillConnected ? TILL_METHODS : METHODS} value={method} onChange={setMethod} />
+          {method === 'till' ? (
+            <Text style={[s.muted, { fontSize: 12, marginTop: -6, marginBottom: 10 }]}>The till records this payment as a sale by itself. Saving here only takes the items off your stock.</Text>
+          ) : null}
         </>
       ) : null}
       <ErrorText text={error} />
-      <Button title={lines.length ? `Save sale of ${money(total)}` : 'Save sale'} onPress={save} loading={saving} disabled={!lines.length} />
+      {stkEnabled && lines.length ? (
+        <Button title="Ask customer to pay by M-Pesa" icon="phone-portrait-outline" onPress={() => check() && setPaying(true)} style={{ marginBottom: 8 }} />
+      ) : null}
+      <Button title={lines.length ? `Save sale of ${money(total)}` : 'Save sale'} variant={stkEnabled && lines.length ? 'outline' : 'primary'} onPress={save} loading={saving} disabled={!lines.length} />
+      </>)}
     </Sheet>
   );
 }

@@ -22,6 +22,14 @@ export async function productsWithStock(search = '', branchId = null) {
     .sort((a, b) => (b.low - a.low) || a.name.localeCompare(b.name));
 }
 
+// Product with this barcode or QR code, or null
+export async function productByBarcode(code) {
+  const c = String(code || '').trim();
+  if (!c) return null;
+  const db = await getDb();
+  return db.getFirstAsync('SELECT * FROM products WHERE deleted = 0 AND barcode = ?', [c]);
+}
+
 export function isLow(p, qty) {
   if (qty <= 0) return true;
   return p.reorder_level != null && p.reorder_level > 0 && qty <= p.reorder_level;
@@ -118,11 +126,22 @@ export async function setCountedStock({ product, branchId, counted, currentQty, 
 }
 
 // Sell several products at once: one sale record plus a stock movement per item
-export async function sellItems({ items, branchId, method, note }) {
+// method 'till': the customer paid to the shop's connected till, which records the sale by itself.
+// Only the stock is taken off here, so the money is not counted twice.
+// saleId and amount come from a paid M-Pesa prompt: the server already made the sale with that id,
+// so this fills in the items and takes them off stock without counting the money twice.
+export async function sellItems({ items, branchId, method, note, saleId = null, amount = null }) {
   const now = Date.now();
-  const total = round(items.reduce((n, i) => n + i.qty * i.price, 0));
+  if (method === 'till') {
+    for (const i of items) {
+      await addMovement({ productId: i.product.id, branchId, type: 'sale', quantity: -i.qty, unitCost: i.product.buy_price || null, note: 'Paid to till', occurredAt: now });
+    }
+    return null;
+  }
+  const total = amount !== null ? amount : round(items.reduce((n, i) => n + i.qty * i.price, 0));
   const description = note || items.map((i) => `${i.qty} ${i.product.name}`).join(', ');
   const sale = await saveRecord('sales', {
+    ...(saleId ? { id: saleId } : {}),
     amount: total,
     method,
     description: description.slice(0, 200),

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Button, Card, Empty, SyncPill, s } from '../../src/components/ui';
 import BranchSwitcher from '../../src/components/BranchSwitcher';
 import { ProductSheet, SellSheet, qtyText } from '../../src/components/stock/StockSheets';
+import BarcodeScanner from '../../src/components/BarcodeScanner';
 import { colors } from '../../src/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useBranch } from '../../src/context/BranchContext';
@@ -20,10 +21,12 @@ export default function Stock() {
   const [onlyLow, setOnlyLow] = useState(false);
   const [adding, setAdding] = useState(false);
   const [selling, setSelling] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [newBarcode, setNewBarcode] = useState('');
   const all = useLiveQuery(() => productsWithStock('', branchFilter), [branchFilter]) || [];
 
   const q = search.trim().toLowerCase();
-  const list = all.filter((p) => (!q || p.name.toLowerCase().includes(q)) && (!onlyLow || p.low));
+  const list = all.filter((p) => (!q || p.name.toLowerCase().includes(q) || (p.barcode && p.barcode === search.trim())) && (!onlyLow || p.low));
   const lowCount = all.filter((p) => p.low).length;
   const value = all.reduce((n, p) => n + Math.max(0, p.qty) * (p.buy_price || 0), 0);
   const branchOptions = !branchFilter ? branches.map((b) => ({ value: b.id, label: b.name })) : null;
@@ -61,6 +64,9 @@ export default function Stock() {
         <View style={[s.row, { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }]}>
           <Ionicons name="search" size={18} color={colors.muted} />
           <TextInput value={search} onChangeText={setSearch} placeholder="Search products" placeholderTextColor={colors.muted} style={{ flex: 1, height: 44, marginLeft: 8, color: colors.text }} />
+          <Pressable onPress={() => setScanning(true)} hitSlop={10} style={{ paddingLeft: 8 }}>
+            <Ionicons name="barcode-outline" size={26} color={colors.primary} />
+          </Pressable>
         </View>
       </View>
 
@@ -98,9 +104,26 @@ export default function Stock() {
         <Ionicons name="add" size={32} color="#fff" />
       </Pressable>
 
+      <BarcodeScanner
+        visible={scanning}
+        onClose={() => setScanning(false)}
+        title="Find a product"
+        onScan={(code) => {
+          const p = all.find((x) => x.barcode && x.barcode === code);
+          if (p) {
+            router.push(`/product/${p.id}`);
+          } else if (subscription.active) {
+            // New item: open the product form with the code already filled in
+            setNewBarcode(code);
+            setAdding(true);
+          }
+          return { close: true };
+        }}
+      />
       <ProductSheet
         visible={adding}
-        onClose={() => setAdding(false)}
+        initialBarcode={newBarcode}
+        onClose={() => { setAdding(false); setNewBarcode(''); }}
         branchOptions={branchOptions}
         defaultBranchId={defaultBranchId}
       />

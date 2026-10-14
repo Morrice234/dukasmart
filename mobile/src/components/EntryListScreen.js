@@ -22,7 +22,21 @@ const CATEGORY_LABEL = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.value
 // Shared by the Sales and Expenses tabs
 export default function EntryListScreen({ table, title }) {
   const isExpense = table === 'expenses';
-  const { subscription, permissions, employee, staff, role } = useAuth();
+  const { subscription, permissions, employee, staff, role, business } = useAuth();
+  const tillConnected = Boolean(business && business.tillConnected);
+  const stkEnabled = Boolean(business && business.stkEnabled);
+
+  // The customer paid through an M-Pesa prompt: the server already made the sale with this id
+  async function savePaidSale(r, { note, branchId }) {
+    await saveRecord('sales', {
+      id: r.recordId,
+      amount: r.amount,
+      method: 'mpesa',
+      description: [note, r.receipt ? `M-Pesa ${r.receipt}` : 'M-Pesa prompt'].filter(Boolean).join(' · '),
+      occurred_at: Date.now(),
+      branch_id: branchId || defaultBranchId,
+    });
+  }
   const { branches, branchFilter, defaultBranchId, branchName } = useBranch();
   const staffName = (id) => (id ? ((staff.find((x) => x.id === id) || {}).name || 'Staff') : 'Owner');
   const showStaff = staff.length > 0;
@@ -129,6 +143,8 @@ export default function EntryListScreen({ table, title }) {
 
       {!isExpense ? (
         <SellSheet
+          tillConnected={!isExpense && tillConnected}
+          stkEnabled={!isExpense && stkEnabled && subscription.active}
           visible={selling}
           onClose={() => setSelling(false)}
           products={products}
@@ -144,6 +160,10 @@ export default function EntryListScreen({ table, title }) {
         initial={editing}
         showCategory={isExpense}
         notePlaceholder={isExpense ? 'e.g. Bought 2 bales of sugar' : 'e.g. Bread and milk'}
+        onPaidByPrompt={!isExpense && stkEnabled && !editing && subscription.active ? savePaidSale : null}
+        mpesaHint={!isExpense && tillConnected && !editing
+          ? `Payments to your till (${business.tillNumber}) are added by themselves. Only record M-Pesa here if it went to another number, or it will be counted twice.`
+          : null}
         onSave={save}
         onDelete={editing && permissions.canDelete ? async () => {
           // A sale made from stock puts its items back on the shelf when deleted
