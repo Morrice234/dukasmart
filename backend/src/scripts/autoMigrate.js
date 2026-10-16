@@ -4,7 +4,7 @@ const { pool } = require('../db');
 
 // Bump this whenever schema.sql changes. The full schema only runs when the database is behind,
 // so normal restarts (Render wakes the server often) stay fast.
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 9;
 
 module.exports = async function autoMigrate() {
   const current = await pool.query("SELECT value FROM settings WHERE key = 'schema_version'")

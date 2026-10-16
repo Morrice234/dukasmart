@@ -1,4 +1,5 @@
 const express = require('express');
+const { inviteLink } = require('../services/release');
 const { query, transaction } = require('../db');
 const { HttpError, normalizePhone } = require('../utils');
 const { uniqueCode, normalizeCode, resolveCode, recordReferral } = require('../services/referrals');
@@ -24,13 +25,15 @@ router.get('/agents', async (req, res) => {
            count(DISTINCT r.id) FILTER (WHERE r.status = 'converted')::int AS conversions,
            COALESCE(sum(rw.amount) FILTER (WHERE rw.kind = 'cash' AND rw.status = 'pending'), 0)::int AS pending_cash,
            COALESCE(sum(rw.amount) FILTER (WHERE rw.kind = 'cash' AND rw.status = 'paid'), 0)::int AS paid_cash,
-           (SELECT count(*)::int FROM leads l WHERE l.agent_id = a.id AND l.status NOT IN ('converted', 'lost')) AS open_leads
+           (SELECT count(*)::int FROM leads l WHERE l.agent_id = a.id AND l.status NOT IN ('converted', 'lost')) AS open_leads,
+           (SELECT count(*)::int FROM app_downloads d WHERE upper(d.code) = upper(a.code)) AS downloads,
+           a.pin_hash IS NOT NULL AS has_pin
       FROM agents a
       LEFT JOIN referrals r ON r.referrer_agent = a.id
       LEFT JOIN referral_rewards rw ON rw.referral_id = r.id
      GROUP BY a.id
      ORDER BY a.is_active DESC, conversions DESC, a.name`);
-  res.json({ agents: rows });
+  res.json({ agents: rows.map(({ pin_hash, ...a }) => ({ ...a, invite_link: inviteLink(a.code) })) });
 });
 
 router.post('/agents', async (req, res) => {
@@ -62,7 +65,8 @@ router.patch('/agents/:id', async (req, res) => {
     [req.params.id, name || null, notes === undefined ? null : notes, isActive === undefined ? null : Boolean(isActive)]
   );
   if (!rows[0]) throw new HttpError(404, 'Agent not found');
-  res.json({ agent: rows[0] });
+  const { pin_hash, ...agent } = rows[0];
+  res.json({ agent });
 });
 
 // ---------- Referrals ----------
@@ -142,6 +146,18 @@ router.post('/rewards/:id/void', async (req, res) => {
   );
   if (!rows[0]) throw new HttpError(400, 'Only pending rewards can be voided');
   res.json({ reward: rows[0] });
+});
+
+// Sets a new portal PIN for an agent and returns it once so you can tell them. Body (optional): { pin }
+router.post('/agents/:id/reset-pin', async (req, res) => {
+  const { temporaryPin, hashPin } = require('../services/accounts');
+  const chosen = req.body && req.body.pin ? String(req.body.pin) : null;
+  if (chosen && !/^\d{4,6}$/.test(chosen)) throw new HttpError(400, 'PIN must be 4 to 6 digits');
+  const pin = chosen || temporaryPin();
+  const { rows } = await query('UPDATE agents SET pin_hash = $2 WHERE id = $1 RETURNING name, phone', [req.params.id, await hashPin(pin)]);
+  if (!rows[0]) throw new HttpError(404, 'Agent not found');
+  console.log(`Agent portal PIN set for ${rows[0].name} by ${req.admin.email}`);
+  res.json({ pin, phone: rows[0].phone, name: rows[0].name });
 });
 
 // Pay everything an agent is owed in one M-Pesa send

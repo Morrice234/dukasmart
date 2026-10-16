@@ -38,6 +38,8 @@ app.use('/api/team', require('./routes/team'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/sms', require('./routes/sms'));
 app.use('/api/till', require('./routes/till'));
+app.use('/api/app', require('./routes/app'));
+app.use('/api/agent', require('./routes/agentPortal'));
 // Payment confirmations from Safaricom. /api/mpesa is kept for payments started before the rename.
 app.use('/api/payhook/till', require('./routes/tillCallbacks'));
 app.use('/api/payhook', require('./routes/mpesa'));

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +10,33 @@ import { useBranch } from '../../src/context/BranchContext';
 import { useSyncState } from '../../src/hooks/useData';
 import { syncNow } from '../../src/sync/syncEngine';
 import { api, PRIVACY_URL } from '../../src/api/client';
+import Constants from 'expo-constants';
 import { wipeLocalData } from '../../src/db/database';
 import { daysLeft, shortDate, timeAgo } from '../../src/utils/format';
+
+const CURRENT_VERSION = (Constants.expoConfig && Constants.expoConfig.version) || '0';
+
+// "1.0.10" is newer than "1.0.9"
+function isNewer(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
+}
+
+// Until the app is on Play Store, people install it from the download link, so tell them when there is a newer one
+function useAppUpdate() {
+  const [update, setUpdate] = useState(null);
+  useEffect(() => {
+    api('/app/latest', { timeout: 15000 })
+      .then((r) => { if (r.available && r.version && isNewer(r.version, CURRENT_VERSION)) setUpdate(r); })
+      .catch(() => {});
+  }, []);
+  return update;
+}
 
 const STATE_TEXT = { trial: 'Free trial', active: 'Active', expired: 'Expired', suspended: 'Suspended' };
 
@@ -48,6 +73,7 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(null); // { pin, error, loading } while the delete sheet is open
   const insets = useSafeAreaInsets();
+  const update = useAppUpdate();
   if (!business) return null;
 
   async function doSync() {
@@ -97,6 +123,15 @@ export default function Account() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={[s.h1, { marginBottom: 12 }]}>Account</Text>
+
+        {update ? (
+          <Card style={{ backgroundColor: colors.primarySoft, borderWidth: 0 }}>
+            <Text style={{ fontWeight: '800', color: colors.primaryDark }}>New version {update.version} is ready</Text>
+            {update.notes ? <Text style={{ color: colors.text, marginTop: 4 }}>{update.notes}</Text> : null}
+            <Text style={[s.muted, { fontSize: 12, marginTop: 4 }]}>Your records stay safe. Install it over this one.</Text>
+            <Button title="Download update" icon="download-outline" onPress={() => Linking.openURL(update.downloadUrl)} style={{ marginTop: 10 }} />
+          </Card>
+        ) : null}
 
         <Card>
           <Text style={[s.h2, { marginBottom: 6 }]}>{business.name}</Text>
@@ -161,6 +196,7 @@ export default function Account() {
         <LinkRow icon="shield-checkmark-outline" title="Privacy policy" subtitle="How we handle your data" onPress={() => Linking.openURL(PRIVACY_URL)} />
 
         <Button title="Sign out" variant="ghost" onPress={logout} />
+        <Text style={[s.muted, { textAlign: 'center', fontSize: 12 }]}>Version {CURRENT_VERSION}</Text>
         {permissions.isOwner ? (
           <Pressable onPress={askDelete} style={{ alignItems: 'center', paddingVertical: 14 }}>
             <Text style={{ color: colors.danger, fontWeight: '600' }}>Delete account</Text>

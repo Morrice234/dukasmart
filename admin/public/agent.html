@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DukaSmart Agent Portal</title>
+<meta name="theme-color" content="#0f7b4a">
+<style>
+  :root {
+    --primary: #0f7b4a; --primary-dark: #0a5c37; --primary-soft: #e6f4ec; --bg: #f4f7f5; --card: #fff;
+    --text: #13221a; --muted: #5f6f67; --border: #e1e8e4; --warning: #a8661a; --warning-soft: #fdf3e1;
+    --danger: #c8372d; --danger-soft: #fcebea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--primary); color: #fff; padding: 18px 16px 56px; }
+  .bar { max-width: 760px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .brand { font-weight: 900; font-size: 20px; }
+  .brand span { opacity: .75; font-weight: 600; }
+  header h1 { max-width: 760px; margin: 14px auto 0; font-size: 22px; }
+  main { max-width: 760px; margin: -40px auto 0; padding: 0 16px 48px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .grid .card { margin: 0; }
+  .label { color: var(--muted); font-size: 13px; }
+  .big { font-size: 24px; font-weight: 800; line-height: 1.2; margin-top: 2px; }
+  .small { font-size: 13px; color: var(--muted); }
+  .accent { background: var(--primary); color: #fff; border: 0; }
+  .accent .label, .accent .small { color: #d5eedf; }
+  .link-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .code { font-size: 26px; font-weight: 900; letter-spacing: 3px; }
+  .url { word-break: break-all; color: var(--primary); font-weight: 600; }
+  button, .btn { border: 0; border-radius: 10px; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; text-decoration: none; display: inline-block; }
+  .btn.ghost, button.ghost { background: #fff; color: var(--primary); border: 1px solid var(--border); }
+  button:disabled { opacity: .6; }
+  input, select, textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; background: #fff; color: var(--text); }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  label input, label select, label textarea { margin-top: 4px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .tabs button { background: #fff; color: var(--text); border: 1px solid var(--border); white-space: nowrap; font-weight: 600; }
+  .tabs button.on { background: var(--text); color: #fff; border-color: var(--text); }
+  .item { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .item:first-child { border-top: 0; }
+  .item b { display: block; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .b-trial { background: var(--warning-soft); color: var(--warning); }
+  .b-active { background: var(--primary-soft); color: var(--primary); }
+  .b-expired, .b-suspended, .b-risk { background: var(--danger-soft); color: var(--danger); }
+  .b-hot { background: var(--danger-soft); color: var(--danger); }
+  .b-warm { background: var(--warning-soft); color: var(--warning); }
+  .b-cold { background: #eef1f5; color: #4a5568; }
+  .right { text-align: right; flex-shrink: 0; }
+  .empty { color: var(--muted); text-align: center; padding: 18px 0; }
+  .error { color: var(--danger); margin: 8px 0; }
+  .chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; margin-top: 10px; }
+  .wk { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .bars div { width: 10px; border-radius: 3px 3px 0 0; }
+  .s { background: #9fd3b6; } .p { background: var(--primary); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .login { max-width: 380px; margin: 40px auto; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } .grid .wide { grid-column: span 2; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar"><div class="brand">Duka<span>Smart</span> · Agents</div><button class="ghost" id="logout" hidden>Sign out</button></div>
+  <h1 id="hello">Agent portal</h1>
+</header>
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+var API = 'https://dukasmart-api-6ygg.onrender.com/api/agent';
+var app = document.getElementById('app');
+var state = { data: null, tab: 'risk' };
+
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+var token = store('agentToken');
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function ksh(n) { return 'KSh ' + Number(n || 0).toLocaleString('en-KE'); }
+function day(d) { if (!d) return ''; var x = new Date(d); return x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); }
+function ago(d) {
+  if (!d) return 'never used';
+  var days = Math.floor((Date.now() - new Date(d).getTime()) / 864e5);
+  return days <= 0 ? 'used today' : days === 1 ? 'used yesterday' : 'last used ' + days + ' days ago';
+}
+function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2200); }
+
+function api(path, opts) {
+  opts = opts || {};
+  return fetch(API + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  }).then(function (r) {
+    return r.json().catch(function () { return {}; }).then(function (j) {
+      if (r.status === 401) { signOut(); }
+      if (!r.ok) throw new Error(j.error || 'Something went wrong (' + r.status + ')');
+      return j;
+    });
+  }, function () { throw new Error('Cannot reach the server. Check your internet and try again.'); });
+}
+
+function signOut() { token = null; store('agentToken', null); state.data = null; renderLogin(); }
+document.getElementById('logout').onclick = signOut;
+
+function renderLogin(msg) {
+  document.getElementById('logout').hidden = true;
+  document.getElementById('hello').textContent = 'Agent portal';
+  app.innerHTML =
+    '<div class="card login"><h2 style="margin-top:0">Sign in</h2>' +
+    '<p class="small">Use your phone number and the PIN your supervisor gave you.</p>' +
+    '<form id="f"><label>Phone number<input id="ph" inputmode="tel" placeholder="07..." autocomplete="tel" required></label>' +
+    '<label>PIN<input id="pin" type="password" inputmode="numeric" maxlength="6" required></label>' +
+    '<div class="error" id="err">' + esc(msg || '') + '</div><button style="width:100%" id="go">Sign in</button></form></div>';
+  document.getElementById('f').onsubmit = function (e) {
+    e.preventDefault();
+    var b = document.getElementById('go'); b.disabled = true; b.textContent = 'Signing in...';
+    api('/login', { method: 'POST', body: { phone: document.getElementById('ph').value, pin: document.getElementById('pin').value } })
+      .then(function (r) { token = r.token; store('agentToken', token); load(); })
+      .catch(function (err) { document.getElementById('err').textContent = err.message; b.disabled = false; b.textContent = 'Sign in'; });
+  };
+}
+
+function load() {
+  app.innerHTML = '<div class="card empty">Loading your numbers... the first load can take up to a minute.</div>';
+  api('/me').then(function (d) { state.data = d; render(); }).catch(function (e) { if (token) app.innerHTML = '<div class="card error">' + esc(e.message) + ' <button class="ghost" onclick="load()">Try again</button></div>'; });
+}
+
+function shareText(d) {
+  return 'Track your shop’s sales, expenses and deni on your phone with DukaSmart. Download it here: ' + d.inviteLink + '\n\nWhen you sign up, use my code ' + d.agent.code + ' for extra free days.';
+}
+
+function render() {
+  var d = state.data;
+  document.getElementById('logout').hidden = false;
+  document.getElementById('hello').textContent = 'Hello, ' + d.agent.name.split(' ')[0];
+  var c = d.counts, dl = d.downloads, m = d.money;
+  var conv = c.signups ? Math.round((c.paid / c.signups) * 100) : 0;
+  var risk = d.shops.filter(function (s) { return s.atRisk; });
+  var maxW = Math.max(1, Math.max.apply(null, d.weekly.map(function (w) { return Math.max(w.signups, w.paid); })));
+
+  var html =
+    '<div class="card"><div class="label">Your invite code</div><div class="code">' + esc(d.agent.code) + '</div>' +
+    '<div class="url">' + esc(d.inviteLink) + '</div>' +
+    '<div class="link-row"><button id="copy">Copy message</button>' +
+    '<a class="btn ghost" href="https://wa.me/?text=' + encodeURIComponent(shareText(d)) + '" target="_blank" rel="noopener">Share on WhatsApp</a></div></div>' +
+
+    '<div class="grid">' +
+    '<div class="card accent"><div class="label">To be paid</div><div class="big">' + ksh(m.pending) + '</div><div class="small">waiting for payout</div></div>' +
+    '<div class="card"><div class="label">Paid to you</div><div class="big">' + ksh(m.paid) + '</div><div class="small">all time</div></div>' +
+    '<div class="card wide"><div class="label">Earned this month</div><div class="big">' + ksh(m.month) + '</div><div class="small">' + (d.ratePerPaidShop ? ksh(d.ratePerPaidShop) + ' per paid shop' : '') + '</div></div>' +
+    '</div>' +
+
+    '<div class="grid">' +
+    '<div class="card"><div class="label">Downloads</div><div class="big">' + dl.total + '</div><div class="small">' + dl.month + ' this month</div></div>' +
+    '<div class="card"><div class="label">Sign-ups</div><div class="big">' + c.signups + '</div><div class="small">' + c.signups_week + ' this week · ' + c.signups_month + ' this month</div></div>' +
+    '<div class="card wide"><div class="label">Paid shops</div><div class="big">' + c.paid + '</div><div class="small">' + conv + '% of sign-ups · ' + c.paid_month + ' this month</div></div>' +
+    '</div>' +
+
+    '<div class="card"><div class="label">Last 8 weeks</div><div class="chart">' +
+    d.weekly.map(function (w) {
+      return '<div class="wk" title="Week of ' + day(w.week) + ': ' + w.signups + ' sign-ups, ' + w.paid + ' paid"><div class="bars">' +
+        '<div class="s" style="height:' + Math.round(w.signups / maxW * 90) + 'px"></div>' +
+        '<div class="p" style="height:' + Math.round(w.paid / maxW * 90) + 'px"></div></div>' +
+        '<div class="small" style="font-size:11px">' + day(w.week) + '</div></div>';
+    }).join('') +
+    '</div><div class="legend"><span><i class="s"></i>Sign-ups</span><span><i class="p"></i>Paid</span></div></div>' +
+
+    '<div class="tabs">' +
+    tabBtn('risk', 'Needs a visit (' + risk.length + ')') + tabBtn('shops', 'My shops (' + d.shops.length + ')') +
+    tabBtn('leads', 'Leads (' + d.leads.length + ')') + tabBtn('payouts', 'Payouts') +
+    '</div><div class="card" id="tab"></div>';
+
+  app.innerHTML = html;
+  document.getElementById('copy').onclick = function () {
+    var t = shareText(d);
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast('Copied. Paste it in WhatsApp or SMS.'); }, function () { prompt('Copy this message:', t); });
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    b.onclick = function () { state.tab = b.getAttribute('data-tab'); render(); };
+  });
+  renderTab(risk);
+}
+
+function tabBtn(key, label) { return '<button data-tab="' + key + '" class="' + (state.tab === key ? 'on' : '') + '">' + esc(label) + '</button>'; }
+
+var STATE = { trial: 'On trial', active: 'Paying', expired: 'Expired', suspended: 'Suspended' };
+function shopRow(s) {
+  var ends = s.endsAt ? (s.state === 'trial' ? 'trial ends ' + day(s.endsAt) : s.state === 'active' ? 'paid until ' + day(s.endsAt) : 'ended ' + day(s.endsAt)) : '';
+  return '<div class="item"><div><b>' + esc(s.name) + '</b>' +
+    '<div class="small">' + esc([s.owner, s.location].filter(Boolean).join(' · ')) + '</div>' +
+    '<div class="small">' + ago(s.lastActiveAt) + (ends ? ' · ' + ends : '') + '</div>' +
+    (s.phone ? '<a class="small" href="tel:+' + esc(s.phone) + '">Call ' + esc(s.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
+    '<div class="right"><span class="badge b-' + esc(s.state) + '">' + esc(STATE[s.state] || s.state) + '</span>' +
+    (s.atRisk ? '<div style="margin-top:4px"><span class="badge b-risk">Visit now</span></div>' : '') +
+    (s.earned ? '<div class="small" style="margin-top:4px">+' + ksh(s.earned) + '</div>' : '') + '</div></div>';
+}
+
+function renderTab(risk) {
+  var d = state.data, el = document.getElementById('tab');
+  if (state.tab === 'risk') {
+    el.innerHTML = '<p class="small" style="margin-top:0">Shops not used for 2 days or more, or whose trial ends within 2 days. A visit today keeps them.</p>' +
+      (risk.length ? risk.map(shopRow).join('') : '<div class="empty">All your shops are active. Well done.</div>');
+  } else if (state.tab === 'shops') {
+    el.innerHTML = d.shops.length ? d.shops.map(shopRow).join('') : '<div class="empty">No shops yet. Share your link to get started.</div>';
+  } else if (state.tab === 'payouts') {
+    el.innerHTML = d.payouts.length ? d.payouts.map(function (p) {
+      return '<div class="item"><div><b>' + ksh(p.amount) + '</b><div class="small">' + p.shops + ' shop' + (p.shops === 1 ? '' : 's') + (p.paid_ref ? ' · M-Pesa ' + esc(p.paid_ref) : '') + '</div></div><div class="right small">' + day(p.paid_at) + '</div></div>';
+    }).join('') : '<div class="empty">No payouts yet. ' + (d.money.pending ? ksh(d.money.pending) + ' is waiting to be paid.' : '') + '</div>';
+  } else {
+    renderLeads(el);
+  }
+}
+
+function renderLeads(el) {
+  var d = state.data;
+  var today = new Date().toISOString().slice(0, 10);
+  el.innerHTML =
+    '<details' + (d.leads.length ? '' : ' open') + '><summary style="font-weight:700;cursor:pointer">+ Add a shop that is not ready yet</summary>' +
+    '<form id="lf" style="margin-top:12px">' +
+    '<label>Shop name<input name="businessName" required></label>' +
+    '<div class="row2"><label>Owner’s name<input name="contactName"></label><label>Phone<input name="phone" inputmode="tel" placeholder="07..."></label></div>' +
+    '<div class="row2"><label>Type of shop<input name="businessType" placeholder="e.g. duka, hardware"></label><label>Location<input name="location" placeholder="street or landmark"></label></div>' +
+    '<div class="row2"><label>Interest<select name="interest"><option value="hot">Hot</option><option value="warm" selected>Warm</option><option value="cold">Cold</option></select></label>' +
+    '<label>Follow-up date<input name="nextFollowUp" type="date" min="' + today + '"></label></div>' +
+    '<label>Why not now?<input name="objection" placeholder="e.g. no money this month"></label>' +
+    '<div class="error" id="lerr"></div><button id="lgo">Save lead</button></form></details>' +
+    (d.leads.length ? d.leads.map(function (l) {
+      var due = l.next_follow_up && l.next_follow_up.slice(0, 10) <= today;
+      return '<div class="item"><div><b>' + esc(l.business_name) + '</b>' +
+        '<div class="small">' + esc([l.contact_name, l.location].filter(Boolean).join(' · ')) + '</div>' +
+        (l.objection ? '<div class="small">“' + esc(l.objection) + '”</div>' : '') +
+        (l.phone ? '<a class="small" href="tel:+' + esc(l.phone) + '">Call ' + esc(l.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
+        '<div class="right"><span class="badge b-' + esc(l.interest) + '">' + esc(l.interest) + '</span>' +
+        '<div class="small" style="margin-top:4px;' + (due ? 'color:var(--danger);font-weight:700' : '') + '">' + (l.next_follow_up ? (due ? 'Due ' : 'Follow up ') + day(l.next_follow_up) : 'No date') + '</div>' +
+        '<button class="ghost" style="margin-top:6px;padding:6px 10px" data-lead="' + esc(l.id) + '">Update</button></div></div>';
+    }).join('') : '<div class="empty">No open leads.</div>');
+
+  document.getElementById('lf').onsubmit = function (e) {
+    e.preventDefault();
+    var f = e.target, body = {};
+    Array.prototype.forEach.call(f.elements, function (x) { if (x.name) body[x.name] = x.value; });
+    var b = document.getElementById('lgo'); b.disabled = true;
+    api('/leads', { method: 'POST', body: body }).then(function () { toast('Lead saved'); state.tab = 'leads'; load(); })
+      .catch(function (err) { document.getElementById('lerr').textContent = err.message; b.disabled = false; });
+  };
+  Array.prototype.forEach.call(el.querySelectorAll('[data-lead]'), function (b) {
+    b.onclick = function () { updateLead(b.getAttribute('data-lead')); };
+  });
+}
+
+function updateLead(id) {
+  var note = prompt('What happened on this follow-up? (optional)');
+  if (note === null) return;
+  var next = prompt('Next follow-up date (YYYY-MM-DD), or type LOST if they will never sign up:', '');
+  if (next === null) return;
+  var body = { note: note };
+  if (/^lost$/i.test(next.trim())) body.status = 'lost';
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(next.trim())) { body.nextFollowUp = next.trim(); body.status = 'follow_up'; }
+  else body.status = 'contacted';
+  api('/leads/' + id, { method: 'PATCH', body: body }).then(function () { toast('Lead updated'); load(); }, function (e) { alert(e.message); });
+}
+
+if (token) load(); else renderLogin();
+</script>
+</body>
+</html>

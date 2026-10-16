@@ -414,3 +414,18 @@ CREATE INDEX IF NOT EXISTS payment_requests_receipt_idx ON payment_requests (bus
 -- ============ v7: product barcodes / QR codes ============
 ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;
 CREATE INDEX IF NOT EXISTS products_barcode_idx ON products (business_id, barcode) WHERE barcode IS NOT NULL AND barcode <> '';
+
+-- ============ v8: Android app download link with invite codes ============
+CREATE TABLE IF NOT EXISTS app_downloads (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code        TEXT,             -- invite code from the link, if any
+  version     TEXT,
+  user_agent  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS app_downloads_code_idx ON app_downloads (upper(code));
+CREATE INDEX IF NOT EXISTS app_downloads_month_idx ON app_downloads (created_at);
+
+-- ============ v9: agent portal ============
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS pin_hash TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;

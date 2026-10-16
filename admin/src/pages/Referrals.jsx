@@ -127,12 +127,16 @@ function Agents() {
       <div className="toolbar"><button className="btn" onClick={() => setForm({ name: '', phone: '', code: '', notes: '' })}>Add agent</button></div>
       <div className="card table-wrap">
         <table>
-          <thead><tr><th>Agent</th><th>Code</th><th>Sign-ups</th><th>Paid customers</th><th>Open leads</th><th>To pay</th><th>Paid so far</th><th /></tr></thead>
+          <thead><tr><th>Agent</th><th>Code</th><th>Downloads</th><th>Sign-ups</th><th>Paid customers</th><th>Open leads</th><th>To pay</th><th>Paid so far</th><th /></tr></thead>
           <tbody>
             {agents.map((a) => (
               <tr key={a.id} style={{ opacity: a.is_active ? 1 : 0.5 }}>
                 <td><strong>{a.name}</strong><div className="muted small">{a.phone}{a.notes ? ` · ${a.notes}` : ''}</div></td>
-                <td><code className="code">{a.code}</code></td>
+                <td>
+                  <code className="code">{a.code}</code>
+                  <div><button className="link-btn" onClick={() => copyInvite(a)}>Copy invite message</button></div>
+                </td>
+                <td>{a.downloads || 0}</td>
                 <td>{a.signups}</td>
                 <td>{a.conversions}</td>
                 <td>{a.open_leads}</td>
@@ -140,11 +144,12 @@ function Agents() {
                 <td>{ksh(a.paid_cash)}</td>
                 <td>
                   <button className="btn small ghost" onClick={() => setForm({ id: a.id, name: a.name, notes: a.notes || '' })}>Edit</button>{' '}
+                  <button className="btn small ghost" onClick={() => portalPin(a)}>{a.has_pin ? 'New portal PIN' : 'Set portal PIN'}</button>{' '}
                   <button className="btn small ghost" onClick={() => toggle(a)}>{a.is_active ? 'Turn off' : 'Turn on'}</button>
                 </td>
               </tr>
             ))}
-            {!agents.length && <tr><td colSpan="8" className="muted center">No agents yet</td></tr>}
+            {!agents.length && <tr><td colSpan="9" className="muted center">No agents yet</td></tr>}
           </tbody>
         </table>
       </div>
@@ -226,4 +231,23 @@ function BonusSettings() {
       <button className="btn">{saved ? 'Saved' : 'Save rules'}</button>
     </form>
   );
+}
+
+// Message an agent can paste into WhatsApp: the download link already carries their code
+function copyInvite(a) {
+  const text = `Track your shop's sales, expenses and deni on your phone with DukaSmart. Download it here: ${a.invite_link}\n\nWhen you sign up, use my code ${a.code} for extra free days.`;
+  navigator.clipboard.writeText(text).then(() => alert(`Copied. Send it to ${a.name} so they can share it.`), () => prompt('Copy this message:', text));
+}
+
+// Gives an agent a PIN for the agent portal and shows it once, with a message ready to send
+async function portalPin(a) {
+  if (a.has_pin && !confirm(`Give ${a.name} a new portal PIN? The old one stops working.`)) return;
+  try {
+    const r = await api(`/agents/${a.id}/reset-pin`, { method: 'POST' });
+    const portal = `${window.location.origin}/agent`;
+    const text = `Hi ${r.name}, your DukaSmart agent portal is ready. Open ${portal} and sign in with your phone number and PIN ${r.pin}. There you can see your sign-ups, paid shops and earnings.`;
+    prompt(`PIN for ${r.name}: ${r.pin}\n\nCopy this message and send it to them by SMS or WhatsApp. The PIN is shown only once.`, text);
+  } catch (e) {
+    alert(e.message);
+  }
 }

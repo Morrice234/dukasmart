@@ -18,8 +18,10 @@ const PAGES = {
 };
 
 // /privacy and /delete-account are public. If they ever reach the admin app, send them to the static page.
-const PUBLIC_PATHS = { '/privacy': '/privacy.html', '/delete-account': '/privacy.html#delete-account' };
-const publicTarget = PUBLIC_PATHS[window.location.pathname.replace(/\/+$/, '')];
+const PUBLIC_PATHS = { '/privacy': '/privacy.html', '/delete-account': '/privacy.html#delete-account', '/download': '/download.html', '/agent': '/agent.html' };
+const path = window.location.pathname.replace(/\/+$/, '');
+const inviteCode = (path.match(/^\/i\/([A-Za-z0-9]{3,20})$/) || [])[1];
+const publicTarget = inviteCode ? `/download.html?code=${inviteCode}` : PUBLIC_PATHS[path];
 if (publicTarget) window.location.replace(publicTarget);
 
 export default function App() {

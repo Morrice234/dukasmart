@@ -7,6 +7,7 @@ const { HttpError, publicBusiness } = require('../utils');
 const { requireAdmin } = require('../middleware/auth');
 const { extendSubscription, addSmsCredits } = require('../services/subscription');
 const till = require('../services/till');
+const release = require('../services/release');
 const { onPaymentSuccess } = require('../services/referrals');
 const { temporaryPin, hashPin, deleteBusiness } = require('../services/accounts');
 
@@ -65,8 +66,9 @@ router.get('/stats', async (req, res) => {
     SELECT COALESCE(sum(segments) FILTER (WHERE status = 'sent'), 0)::int AS sent,
            COALESCE(sum(NULLIF(regexp_replace(cost, '[^0-9.]', '', 'g'), '')::numeric) FILTER (WHERE status = 'sent'), 0)::float AS cost
       FROM sms_messages WHERE created_at >= date_trunc('month', now())`)).rows[0];
+  const downloads = (await query(`SELECT count(*)::int AS n FROM app_downloads WHERE created_at >= date_trunc('month', now())`)).rows[0];
   res.json({
-    total, ...counts, activeToday,
+    total, ...counts, activeToday, downloadsMonth: downloads.n,
     smsSentMonth: sms.sent, smsCostMonth: Math.round(sms.cost * 100) / 100,
     openLeads: leads.open, leadsDue: leads.due,
     referralSignupsMonth: refs.month_signups, referralConversions: refs.converted, pendingPayouts: refs.pending_cash,
@@ -172,6 +174,28 @@ router.delete('/businesses/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Android app download (before Play Store) ----
+
+router.get('/app-release', async (req, res) => {
+  const stats = (await query(`
+    SELECT count(*)::int AS total,
+           count(*) FILTER (WHERE created_at >= date_trunc('month', now()))::int AS month,
+           count(*) FILTER (WHERE code IS NOT NULL)::int AS with_code
+      FROM app_downloads`)).rows[0];
+  const topCodes = (await query(`
+    SELECT upper(code) AS code, count(*)::int AS n FROM app_downloads
+     WHERE code IS NOT NULL GROUP BY upper(code) ORDER BY n DESC LIMIT 10`)).rows;
+  res.json({ release: await release.getRelease(), stats, topCodes, downloadPage: release.inviteLink(null) });
+});
+
+// Body: { url, version, notes }
+router.put('/app-release', async (req, res) => {
+  const { url, version, notes } = req.body || {};
+  if (!/^https:\/\/\S+$/.test(String(url || '').trim())) throw new HttpError(400, 'Paste the https link to the APK file');
+  if (!String(version || '').trim()) throw new HttpError(400, 'Enter the version, e.g. 1.0.6');
+  res.json({ release: await release.setRelease({ url, version, notes }) });
+});
+
 // ---- M-Pesa till connection (payments recorded as sales automatically) ----
 
 router.get('/businesses/:id/till', async (req, res) => {
@@ -227,6 +251,11 @@ router.put('/businesses/:id/till', async (req, res) => {
   } catch (e) {
     // Safaricom refuses to register a shortcode twice. Payments may still come if the earlier registration pointed here.
     const already = /duplicate|already/i.test(e.message);
+    // We registered this till before with the same link (the link never changes on re-save), so nothing is wrong
+    if (already && existing && existing.registered_at) {
+      conn = (await query(`UPDATE till_connections SET status = 'active', last_error = NULL WHERE id = $1 RETURNING *`, [conn.id])).rows[0];
+      return res.json({ connection: till.publicConnection(conn) });
+    }
     const note = already
       ? 'Safaricom says this till was already registered. If no payments arrive after a test payment, ask Safaricom (apisupport@safaricom.co.ke) to delete the old URLs, then save again.'
       : e.message;

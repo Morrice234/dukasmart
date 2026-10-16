@@ -14,6 +14,23 @@
   to = "/privacy.html#delete-account"
   status = 301
 
+# Agent portal (field agents track sign-ups, paid shops and earnings)
+[[redirects]]
+  from = "/agent"
+  to = "/agent.html"
+  status = 200
+
+# App download page and short invite links like /i/ABC123
+[[redirects]]
+  from = "/download"
+  to = "/download.html"
+  status = 200
+
+[[redirects]]
+  from = "/i/*"
+  to = "/download.html"
+  status = 200
+
 # Single page app: send every other path to index.html
 [[redirects]]
   from = "/*"

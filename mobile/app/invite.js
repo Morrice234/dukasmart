@@ -40,6 +40,13 @@ export default function Invite() {
         </Text>
       </Card>
 
+      {data.inviteLink ? (
+        <Card>
+          <Text style={[s.muted, { fontSize: 12 }]}>Your download link (the app and your code in one link)</Text>
+          <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 4 }} selectable>{data.inviteLink}</Text>
+        </Card>
+      ) : null}
+
       <View style={[s.row, { marginBottom: 12 }]}>
         <Button title="WhatsApp" icon="logo-whatsapp" onPress={shareWhatsApp} style={{ flex: 1, marginRight: 6 }} />
         <Button title="Share" icon="share-social-outline" variant="outline" onPress={() => Share.share({ message: data.shareMessage })} style={{ flex: 1, marginLeft: 6 }} />

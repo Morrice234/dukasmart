@@ -1,4 +1,5 @@
 const express = require('express');
+const { inviteLink } = require('../services/release');
 const { query } = require('../db');
 const { requireUser } = require('../middleware/auth');
 const { getSettings } = require('../services/settings');
@@ -25,7 +26,8 @@ router.get('/', requireUser, async (req, res) => {
     code: b.referral_code,
     rewardDays: settings.referrer_bonus_days,
     friendBonusDays: settings.referee_bonus_trial_days,
-    shareMessage: `I use DukaSmart to track my sales, expenses and deni on my phone. Sign up with my code ${b.referral_code} and get ${settings.referee_bonus_trial_days} extra free days.`,
+    inviteLink: inviteLink(b.referral_code),
+    shareMessage: `I use DukaSmart to track my sales, expenses and deni on my phone. Get the app here: ${inviteLink(b.referral_code)}\n\nSign up with my code ${b.referral_code} and get ${settings.referee_bonus_trial_days} extra free days.`,
     totals,
     referrals: rows.map((r) => ({
       id: r.id, businessName: r.business_name, status: r.status,
