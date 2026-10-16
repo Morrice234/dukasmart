@@ -24,7 +24,8 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       <form className="card login" onSubmit={submit}>
-        <h1>DukaSmart Admin</h1>
+        <div className="brand login-brand"><span className="mark">D</span><div>DukaSmart<small>Admin</small></div></div>
+        <h1>Sign in</h1>
         <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         {error && <p className="error">{error}</p>}

@@ -4,93 +4,154 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DukaSmart Agent Portal</title>
-<meta name="theme-color" content="#0f7b4a">
+<meta name="theme-color" content="#0b3d26">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --primary: #0f7b4a; --primary-dark: #0a5c37; --primary-soft: #e6f4ec; --bg: #f4f7f5; --card: #fff;
-    --text: #13221a; --muted: #5f6f67; --border: #e1e8e4; --warning: #a8661a; --warning-soft: #fdf3e1;
-    --danger: #c8372d; --danger-soft: #fcebea;
+    --forest: #0b3d26; --forest-2: #12503a; --primary: #0f7b4a; --primary-soft: #e4f2ea; --maize: #f2b630;
+    --bg: #f5f7f2; --card: #fff; --text: #13221a; --muted: #5f6f67; --border: #dfe7e1;
+    --warning: #a8661a; --warning-soft: #fbf0dc; --danger: #c8372d; --danger-soft: #fbe9e7; --sidebar: 248px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { background: var(--primary); color: #fff; padding: 18px 16px 56px; }
-  .bar { max-width: 760px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .brand { font-weight: 900; font-size: 20px; }
-  .brand span { opacity: .75; font-weight: 600; }
-  header h1 { max-width: 760px; margin: 14px auto 0; font-size: 22px; }
-  main { max-width: 760px; margin: -40px auto 0; padding: 0 16px 48px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: var(--primary); }
+  :focus-visible { outline: 3px solid var(--maize); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* Shell */
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar); z-index: 30; background: var(--forest); color: #d6e9de; padding: 18px 14px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .side-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 22px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 18px; color: #fff; line-height: 1.1; }
+  .brand small { display: block; font-weight: 500; font-size: 13px; color: #9fc4b0; margin-top: 2px; }
+  .mark { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--maize); color: var(--forest); font-weight: 900; font-size: 19px; flex-shrink: 0; }
+  .nav { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; color: #cfe3d7; text-align: left; padding: 11px 12px; border-radius: 8px; font: inherit; font-weight: 500; cursor: pointer; }
+  .nav svg { flex-shrink: 0; }
+  .nav:hover { background: var(--forest-2); color: #fff; }
+  .nav.on { background: var(--forest-2); color: #fff; font-weight: 700; }
+  .nav.on::before { content: ''; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: var(--maize); }
+  .nav.on svg { color: var(--maize); }
+  .count { margin-left: auto; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 20px; background: rgba(255,255,255,0.12); }
+  .count.alert { background: var(--maize); color: var(--forest); }
+  .nav.out { margin-top: auto; color: #9fc4b0; }
+  .who { padding: 14px 12px 6px; font-size: 13px; color: #9fc4b0; border-top: 1px solid var(--forest-2); margin-top: 8px; }
+  .who b { display: block; color: #fff; font-size: 14px; }
+  main { margin-left: var(--sidebar); padding: 32px 36px 48px; max-width: calc(980px + var(--sidebar)); }
+  .topbar { display: none; }
+  .icon-btn { display: inline-grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
+  .close-menu { display: none; }
+  .scrim { display: none; }
+  h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+
+  /* Blocks */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 16px; margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
   .grid .card { margin: 0; }
-  .label { color: var(--muted); font-size: 13px; }
-  .big { font-size: 24px; font-weight: 800; line-height: 1.2; margin-top: 2px; }
+  .label { color: var(--muted); font-size: 14px; }
+  .big { font-size: 28px; font-weight: 800; line-height: 1.15; margin-top: 2px; letter-spacing: -0.01em; }
   .small { font-size: 13px; color: var(--muted); }
-  .accent { background: var(--primary); color: #fff; border: 0; }
-  .accent .label, .accent .small { color: #d5eedf; }
-  .link-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .code { font-size: 26px; font-weight: 900; letter-spacing: 3px; }
-  .url { word-break: break-all; color: var(--primary); font-weight: 600; }
-  button, .btn { border: 0; border-radius: 10px; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; text-decoration: none; display: inline-block; }
-  .btn.ghost, button.ghost { background: #fff; color: var(--primary); border: 1px solid var(--border); }
+  .money { background: var(--forest); color: #fff; border-color: var(--forest); }
+  .money .label, .money .small { color: #b5d6c4; }
+  .money .big { color: var(--maize); }
+  .invite { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .code { font-size: 30px; font-weight: 900; letter-spacing: 4px; line-height: 1.1; }
+  .url { word-break: break-all; color: var(--primary); font-weight: 600; font-size: 14px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button, .btn { border: 1px solid var(--primary); border-radius: 8px; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; text-decoration: none; display: inline-block; }
+  .ghost { background: #fff; color: var(--primary); border-color: var(--border); }
   button:disabled { opacity: .6; }
-  input, select, textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; background: #fff; color: var(--text); }
-  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-  label input, label select, label textarea { margin-top: 4px; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
-  .tabs button { background: #fff; color: var(--text); border: 1px solid var(--border); white-space: nowrap; font-weight: 600; }
-  .tabs button.on { background: var(--text); color: #fff; border-color: var(--text); }
-  .item { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border); }
-  .item:first-child { border-top: 0; }
-  .item b { display: block; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
-  .b-trial { background: var(--warning-soft); color: var(--warning); }
+  input, select { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff; color: var(--text); }
+  input:focus, select:focus { border-color: var(--primary); outline: 2px solid var(--primary-soft); }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  label input, label select { margin-top: 4px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .item { display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .item:first-child { border-top: 0; padding-top: 2px; }
+  .item b { display: block; font-size: 16px; }
+  .right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 20px; white-space: nowrap; }
+  .b-trial, .b-warm { background: var(--warning-soft); color: var(--warning); }
   .b-active { background: var(--primary-soft); color: var(--primary); }
-  .b-expired, .b-suspended, .b-risk { background: var(--danger-soft); color: var(--danger); }
-  .b-hot { background: var(--danger-soft); color: var(--danger); }
-  .b-warm { background: var(--warning-soft); color: var(--warning); }
-  .b-cold { background: #eef1f5; color: #4a5568; }
-  .right { text-align: right; flex-shrink: 0; }
-  .empty { color: var(--muted); text-align: center; padding: 18px 0; }
+  .b-expired, .b-suspended, .b-risk, .b-hot { background: var(--danger-soft); color: var(--danger); }
+  .b-cold { background: #e8eef7; color: #3b5b8a; }
+  .call { font-weight: 700; font-size: 14px; }
+  .empty { color: var(--muted); text-align: center; padding: 22px 0; }
   .error { color: var(--danger); margin: 8px 0; }
-  .chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; margin-top: 10px; }
-  .wk { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .bars { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
-  .bars div { width: 10px; border-radius: 3px 3px 0 0; }
-  .s { background: #9fd3b6; } .p { background: var(--primary); }
-  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-  .login { max-width: 380px; margin: 40px auto; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .chart { display: flex; align-items: flex-end; gap: 8px; height: 130px; margin-top: 12px; }
+  .wk { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 100px; }
+  .bars div { width: 12px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .s { background: #a9d6bd; } .p { background: var(--forest); }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  details summary { font-weight: 700; cursor: pointer; color: var(--primary); }
+  .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--forest); }
+  .login { width: 380px; max-width: 100%; padding: 28px; }
+  .login .brand { color: var(--forest); margin-bottom: 18px; }
+  .login .brand small { color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
   .toast.show { opacity: 1; }
-  @media (max-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } .grid .wide { grid-column: span 2; } }
+
+  @media (max-width: 900px) {
+    .topbar { display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 20; background: var(--forest); color: #fff; padding: 8px 12px; min-height: 58px; }
+    .topbar .title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+    .topbar .mark { width: 30px; height: 30px; font-size: 16px; border-radius: 8px; }
+    .sidebar { transform: translateX(-100%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; width: min(300px, 84vw); }
+    .menu-open .sidebar { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; box-shadow: 8px 0 28px rgba(0,0,0,.25); }
+    .close-menu { display: inline-grid; color: #cfe3d7; }
+    .menu-open .scrim { display: block; position: fixed; inset: 0; background: rgba(8,30,19,.5); z-index: 25; }
+    main { margin-left: 0; padding: 18px 14px 40px; }
+    h1 { font-size: 22px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+    .grid .wide { grid-column: span 2; }
+    .big { font-size: 24px; }
+    .actions { width: 100%; }
+    .actions > * { flex: 1; text-align: center; }
+  }
+  @media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .sidebar { transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <div class="bar"><div class="brand">Duka<span>Smart</span> · Agents</div><button class="ghost" id="logout" hidden>Sign out</button></div>
-  <h1 id="hello">Agent portal</h1>
-</header>
-<main id="app"></main>
-<div class="toast" id="toast"></div>
+<div id="root"></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 var API = 'https://dukasmart-api-6ygg.onrender.com/api/agent';
-var app = document.getElementById('app');
-var state = { data: null, tab: 'risk' };
+var root = document.getElementById('root');
+var state = { data: null, view: 'overview', menu: false };
+
+var ICON = {
+  overview: 'M4 13h6V4H4zm10 7h6V11h-6zM4 20h6v-4H4zm10-11h6V4h-6z',
+  risk: 'M12 3l9 16H3zM12 10v4M12 17v.5',
+  shops: 'M4 10l1.5-5h13L20 10M4 10h16M4 10v9h16v-9M9 19v-5h6v5',
+  leads: 'M12 4a4 4 0 110 8 4 4 0 010-8zm-7 16c0-3.3 3.1-6 7-6s7 2.7 7 6M19 4v4m-2-2h4',
+  payouts: 'M3 7h18v10H3zM3 11h18M7 15h3',
+  logout: 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  close: 'M6 6l12 12M18 6L6 18',
+};
+function icon(name, size) {
+  size = size || 20;
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + ICON[name] + '"/></svg>';
+}
+var VIEWS = { overview: 'Overview', risk: 'Needs a visit', shops: 'My shops', leads: 'Leads', payouts: 'Payouts' };
 
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
 var token = store('agentToken');
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function ksh(n) { return 'KSh ' + Number(n || 0).toLocaleString('en-KE'); }
-function day(d) { if (!d) return ''; var x = new Date(d); return x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); }
+function day(d) { if (!d) return ''; return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); }
 function ago(d) {
-  if (!d) return 'never used';
+  if (!d) return 'Never used the app';
   var days = Math.floor((Date.now() - new Date(d).getTime()) / 864e5);
-  return days <= 0 ? 'used today' : days === 1 ? 'used yesterday' : 'last used ' + days + ' days ago';
+  return days <= 0 ? 'Used today' : days === 1 ? 'Used yesterday' : 'Last used ' + days + ' days ago';
 }
-function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2200); }
+function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); setTimeout(function () { el.classList.remove('show'); }, 2400); }
 
 function api(path, opts) {
   opts = opts || {};
@@ -100,7 +161,7 @@ function api(path, opts) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   }).then(function (r) {
     return r.json().catch(function () { return {}; }).then(function (j) {
-      if (r.status === 401) { signOut(); }
+      if (r.status === 401 && token) { signOut(); }
       if (!r.ok) throw new Error(j.error || 'Something went wrong (' + r.status + ')');
       return j;
     });
@@ -108,17 +169,16 @@ function api(path, opts) {
 }
 
 function signOut() { token = null; store('agentToken', null); state.data = null; renderLogin(); }
-document.getElementById('logout').onclick = signOut;
 
+// ---------- Sign in ----------
 function renderLogin(msg) {
-  document.getElementById('logout').hidden = true;
-  document.getElementById('hello').textContent = 'Agent portal';
-  app.innerHTML =
-    '<div class="card login"><h2 style="margin-top:0">Sign in</h2>' +
-    '<p class="small">Use your phone number and the PIN your supervisor gave you.</p>' +
-    '<form id="f"><label>Phone number<input id="ph" inputmode="tel" placeholder="07..." autocomplete="tel" required></label>' +
-    '<label>PIN<input id="pin" type="password" inputmode="numeric" maxlength="6" required></label>' +
-    '<div class="error" id="err">' + esc(msg || '') + '</div><button style="width:100%" id="go">Sign in</button></form></div>';
+  root.innerHTML =
+    '<div class="login-wrap"><form class="card login" id="f">' +
+    '<div class="brand"><span class="mark">D</span><div>DukaSmart<small>Agent portal</small></div></div>' +
+    '<h1>Sign in</h1><p class="lead">Use your phone number and the PIN your supervisor gave you.</p>' +
+    '<label>Phone number<input id="ph" inputmode="tel" placeholder="07..." autocomplete="tel" required></label>' +
+    '<label>PIN<input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" required></label>' +
+    '<div class="error" id="err" role="alert">' + esc(msg || '') + '</div><button style="width:100%" id="go">Sign in</button></form></div>';
   document.getElementById('f').onsubmit = function (e) {
     e.preventDefault();
     var b = document.getElementById('go'); b.disabled = true; b.textContent = 'Signing in...';
@@ -129,129 +189,172 @@ function renderLogin(msg) {
 }
 
 function load() {
-  app.innerHTML = '<div class="card empty">Loading your numbers... the first load can take up to a minute.</div>';
-  api('/me').then(function (d) { state.data = d; render(); }).catch(function (e) { if (token) app.innerHTML = '<div class="card error">' + esc(e.message) + ' <button class="ghost" onclick="load()">Try again</button></div>'; });
+  root.innerHTML = '<div class="login-wrap"><div class="card login"><div class="brand"><span class="mark">D</span><div>DukaSmart<small>Agent portal</small></div></div><p class="lead">Loading your numbers. The first load can take up to a minute.</p></div></div>';
+  api('/me').then(function (d) { state.data = d; renderShell(); }).catch(function (e) {
+    if (token) root.innerHTML = '<div class="login-wrap"><div class="card login"><p class="error">' + esc(e.message) + '</p><button onclick="load()">Try again</button></div></div>';
+  });
+}
+
+// ---------- Shell with sidebar (computer) or menu button (phone) ----------
+function riskShops() { return state.data.shops.filter(function (s) { return s.atRisk; }); }
+function dueLeads() {
+  var today = new Date().toISOString().slice(0, 10);
+  return state.data.leads.filter(function (l) { return l.next_follow_up && l.next_follow_up.slice(0, 10) <= today; });
+}
+
+function renderShell() {
+  var d = state.data;
+  var counts = { risk: riskShops().length, shops: d.shops.length, leads: d.leads.length };
+  var alerts = { risk: counts.risk > 0, leads: dueLeads().length > 0 };
+  root.innerHTML =
+    '<div class="' + (state.menu ? 'menu-open' : '') + '" id="shell">' +
+    '<header class="topbar"><button class="icon-btn" id="open" aria-label="Open menu" aria-expanded="' + state.menu + '" aria-controls="sidebar">' + icon('menu', 24) + '</button>' +
+    '<div class="title"><span class="mark">D</span>' + esc(VIEWS[state.view]) + '</div></header>' +
+    '<div class="scrim" id="scrim"></div>' +
+    '<aside class="sidebar" id="sidebar"><div class="side-head"><div class="brand"><span class="mark">D</span><div>DukaSmart<small>Agent portal</small></div></div>' +
+    '<button class="icon-btn close-menu" id="close" aria-label="Close menu">' + icon('close', 22) + '</button></div><nav aria-label="Sections">' +
+    Object.keys(VIEWS).map(function (k) {
+      var c = counts[k] !== undefined ? '<span class="count' + (alerts[k] ? ' alert' : '') + '">' + counts[k] + '</span>' : '';
+      return '<button class="nav' + (state.view === k ? ' on' : '') + '" data-view="' + k + '"' + (state.view === k ? ' aria-current="page"' : '') + '>' + icon(k) + '<span>' + VIEWS[k] + '</span>' + c + '</button>';
+    }).join('') +
+    '</nav><div class="who"><b>' + esc(d.agent.name) + '</b>Code ' + esc(d.agent.code) + '</div>' +
+    '<button class="nav out" id="out">' + icon('logout') + '<span>Sign out</span></button></aside>' +
+    '<main id="main"></main></div>';
+
+  document.getElementById('open').onclick = function () { setMenu(true); };
+  document.getElementById('close').onclick = function () { setMenu(false); };
+  document.getElementById('scrim').onclick = function () { setMenu(false); };
+  document.getElementById('out').onclick = signOut;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
+    b.onclick = function () { state.view = b.getAttribute('data-view'); state.menu = false; renderShell(); window.scrollTo(0, 0); };
+  });
+  renderView();
+}
+function setMenu(open) {
+  state.menu = open;
+  document.getElementById('shell').classList.toggle('menu-open', open);
+  document.getElementById('open').setAttribute('aria-expanded', open);
+  if (open) document.getElementById('close').focus();
+}
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.menu) setMenu(false); });
+
+function renderView() {
+  var main = document.getElementById('main');
+  ({ overview: overview, risk: riskView, shops: shopsView, leads: leadsView, payouts: payoutsView })[state.view](main);
 }
 
 function shareText(d) {
   return 'Track your shop’s sales, expenses and deni on your phone with DukaSmart. Download it here: ' + d.inviteLink + '\n\nWhen you sign up, use my code ' + d.agent.code + ' for extra free days.';
 }
 
-function render() {
-  var d = state.data;
-  document.getElementById('logout').hidden = false;
-  document.getElementById('hello').textContent = 'Hello, ' + d.agent.name.split(' ')[0];
-  var c = d.counts, dl = d.downloads, m = d.money;
+// ---------- Views ----------
+function overview(main) {
+  var d = state.data, c = d.counts, dl = d.downloads, m = d.money;
   var conv = c.signups ? Math.round((c.paid / c.signups) * 100) : 0;
-  var risk = d.shops.filter(function (s) { return s.atRisk; });
+  var risk = riskShops().length, due = dueLeads().length;
   var maxW = Math.max(1, Math.max.apply(null, d.weekly.map(function (w) { return Math.max(w.signups, w.paid); })));
 
-  var html =
-    '<div class="card"><div class="label">Your invite code</div><div class="code">' + esc(d.agent.code) + '</div>' +
-    '<div class="url">' + esc(d.inviteLink) + '</div>' +
-    '<div class="link-row"><button id="copy">Copy message</button>' +
-    '<a class="btn ghost" href="https://wa.me/?text=' + encodeURIComponent(shareText(d)) + '" target="_blank" rel="noopener">Share on WhatsApp</a></div></div>' +
+  main.innerHTML =
+    '<h1>Hello, ' + esc(d.agent.name.split(' ')[0]) + '</h1>' +
+    '<p class="lead">' + (risk || due
+      ? [risk ? risk + ' shop' + (risk === 1 ? ' needs' : 's need') + ' a visit' : '', due ? due + ' lead' + (due === 1 ? ' is' : 's are') + ' due for follow-up' : ''].filter(Boolean).join(' and ') + ' today.'
+      : 'Nothing urgent today. Keep sharing your link.') + '</p>' +
+
+    '<div class="card invite"><div><div class="label">Your invite code</div><div class="code">' + esc(d.agent.code) + '</div><div class="url">' + esc(d.inviteLink) + '</div></div>' +
+    '<div class="actions"><button id="copy">Copy message</button><a class="btn ghost" href="https://wa.me/?text=' + encodeURIComponent(shareText(d)) + '" target="_blank" rel="noopener">Share on WhatsApp</a></div></div>' +
 
     '<div class="grid">' +
-    '<div class="card accent"><div class="label">To be paid</div><div class="big">' + ksh(m.pending) + '</div><div class="small">waiting for payout</div></div>' +
-    '<div class="card"><div class="label">Paid to you</div><div class="big">' + ksh(m.paid) + '</div><div class="small">all time</div></div>' +
-    '<div class="card wide"><div class="label">Earned this month</div><div class="big">' + ksh(m.month) + '</div><div class="small">' + (d.ratePerPaidShop ? ksh(d.ratePerPaidShop) + ' per paid shop' : '') + '</div></div>' +
+    '<div class="card money"><div class="label">Waiting to be paid</div><div class="big">' + ksh(m.pending) + '</div><div class="small">' + (d.ratePerPaidShop ? ksh(d.ratePerPaidShop) + ' for each shop that pays' : '') + '</div></div>' +
+    '<div class="card"><div class="label">Paid to you</div><div class="big">' + ksh(m.paid) + '</div><div class="small">All time</div></div>' +
+    '<div class="card wide"><div class="label">Earned this month</div><div class="big">' + ksh(m.month) + '</div><div class="small">Paid and waiting</div></div>' +
     '</div>' +
 
     '<div class="grid">' +
     '<div class="card"><div class="label">Downloads</div><div class="big">' + dl.total + '</div><div class="small">' + dl.month + ' this month</div></div>' +
-    '<div class="card"><div class="label">Sign-ups</div><div class="big">' + c.signups + '</div><div class="small">' + c.signups_week + ' this week · ' + c.signups_month + ' this month</div></div>' +
-    '<div class="card wide"><div class="label">Paid shops</div><div class="big">' + c.paid + '</div><div class="small">' + conv + '% of sign-ups · ' + c.paid_month + ' this month</div></div>' +
+    '<div class="card"><div class="label">Sign-ups</div><div class="big">' + c.signups + '</div><div class="small">' + c.signups_week + ' this week, ' + c.signups_month + ' this month</div></div>' +
+    '<div class="card wide"><div class="label">Paid shops</div><div class="big">' + c.paid + '</div><div class="small">' + conv + '% of your sign-ups, ' + c.paid_month + ' this month</div></div>' +
     '</div>' +
 
-    '<div class="card"><div class="label">Last 8 weeks</div><div class="chart">' +
+    '<div class="card"><h2>Your last 8 weeks</h2><div class="chart">' +
     d.weekly.map(function (w) {
       return '<div class="wk" title="Week of ' + day(w.week) + ': ' + w.signups + ' sign-ups, ' + w.paid + ' paid"><div class="bars">' +
-        '<div class="s" style="height:' + Math.round(w.signups / maxW * 90) + 'px"></div>' +
-        '<div class="p" style="height:' + Math.round(w.paid / maxW * 90) + 'px"></div></div>' +
-        '<div class="small" style="font-size:11px">' + day(w.week) + '</div></div>';
+        '<div class="s" style="height:' + Math.round(w.signups / maxW * 100) + 'px"></div>' +
+        '<div class="p" style="height:' + Math.round(w.paid / maxW * 100) + 'px"></div></div>' +
+        '<div class="small" style="font-size:12px">' + day(w.week) + '</div></div>';
     }).join('') +
-    '</div><div class="legend"><span><i class="s"></i>Sign-ups</span><span><i class="p"></i>Paid</span></div></div>' +
+    '</div><div class="legend"><span><i class="s"></i>Sign-ups</span><span><i class="p"></i>Paid shops</span></div></div>';
 
-    '<div class="tabs">' +
-    tabBtn('risk', 'Needs a visit (' + risk.length + ')') + tabBtn('shops', 'My shops (' + d.shops.length + ')') +
-    tabBtn('leads', 'Leads (' + d.leads.length + ')') + tabBtn('payouts', 'Payouts') +
-    '</div><div class="card" id="tab"></div>';
-
-  app.innerHTML = html;
   document.getElementById('copy').onclick = function () {
     var t = shareText(d);
     (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast('Copied. Paste it in WhatsApp or SMS.'); }, function () { prompt('Copy this message:', t); });
   };
-  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
-    b.onclick = function () { state.tab = b.getAttribute('data-tab'); render(); };
-  });
-  renderTab(risk);
 }
-
-function tabBtn(key, label) { return '<button data-tab="' + key + '" class="' + (state.tab === key ? 'on' : '') + '">' + esc(label) + '</button>'; }
 
 var STATE = { trial: 'On trial', active: 'Paying', expired: 'Expired', suspended: 'Suspended' };
 function shopRow(s) {
   var ends = s.endsAt ? (s.state === 'trial' ? 'trial ends ' + day(s.endsAt) : s.state === 'active' ? 'paid until ' + day(s.endsAt) : 'ended ' + day(s.endsAt)) : '';
   return '<div class="item"><div><b>' + esc(s.name) + '</b>' +
-    '<div class="small">' + esc([s.owner, s.location].filter(Boolean).join(' · ')) + '</div>' +
-    '<div class="small">' + ago(s.lastActiveAt) + (ends ? ' · ' + ends : '') + '</div>' +
-    (s.phone ? '<a class="small" href="tel:+' + esc(s.phone) + '">Call ' + esc(s.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
+    '<div class="small">' + esc([s.owner, s.location].filter(Boolean).join(', ')) + '</div>' +
+    '<div class="small">' + ago(s.lastActiveAt) + (ends ? ', ' + ends : '') + '</div>' +
+    (s.phone ? '<a class="call" href="tel:+' + esc(s.phone) + '">Call ' + esc(s.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
     '<div class="right"><span class="badge b-' + esc(s.state) + '">' + esc(STATE[s.state] || s.state) + '</span>' +
-    (s.atRisk ? '<div style="margin-top:4px"><span class="badge b-risk">Visit now</span></div>' : '') +
-    (s.earned ? '<div class="small" style="margin-top:4px">+' + ksh(s.earned) + '</div>' : '') + '</div></div>';
+    (s.atRisk ? '<span class="badge b-risk">Visit now</span>' : '') +
+    (s.earned ? '<span class="small">You earned ' + ksh(s.earned) + '</span>' : '') + '</div></div>';
 }
 
-function renderTab(risk) {
-  var d = state.data, el = document.getElementById('tab');
-  if (state.tab === 'risk') {
-    el.innerHTML = '<p class="small" style="margin-top:0">Shops not used for 2 days or more, or whose trial ends within 2 days. A visit today keeps them.</p>' +
-      (risk.length ? risk.map(shopRow).join('') : '<div class="empty">All your shops are active. Well done.</div>');
-  } else if (state.tab === 'shops') {
-    el.innerHTML = d.shops.length ? d.shops.map(shopRow).join('') : '<div class="empty">No shops yet. Share your link to get started.</div>';
-  } else if (state.tab === 'payouts') {
-    el.innerHTML = d.payouts.length ? d.payouts.map(function (p) {
-      return '<div class="item"><div><b>' + ksh(p.amount) + '</b><div class="small">' + p.shops + ' shop' + (p.shops === 1 ? '' : 's') + (p.paid_ref ? ' · M-Pesa ' + esc(p.paid_ref) : '') + '</div></div><div class="right small">' + day(p.paid_at) + '</div></div>';
-    }).join('') : '<div class="empty">No payouts yet. ' + (d.money.pending ? ksh(d.money.pending) + ' is waiting to be paid.' : '') + '</div>';
-  } else {
-    renderLeads(el);
-  }
+function riskView(main) {
+  var risk = riskShops();
+  main.innerHTML = '<h1>Needs a visit</h1><p class="lead">Shops that haven’t used the app for 2 days or more, or whose trial ends within 2 days. A visit today keeps them.</p>' +
+    '<div class="card">' + (risk.length ? risk.map(shopRow).join('') : '<div class="empty">All your shops are active.</div>') + '</div>';
 }
 
-function renderLeads(el) {
+function shopsView(main) {
+  var s = state.data.shops;
+  main.innerHTML = '<h1>My shops</h1><p class="lead">Every shop that signed up with your code, newest first.</p>' +
+    '<div class="card">' + (s.length ? s.map(shopRow).join('') : '<div class="empty">No shops yet. Share your link from the Overview to get started.</div>') + '</div>';
+}
+
+function payoutsView(main) {
+  var d = state.data;
+  main.innerHTML = '<h1>Payouts</h1><p class="lead">' + (d.money.pending ? ksh(d.money.pending) + ' is waiting for your next payout.' : 'Everything you have earned has been paid.') + '</p>' +
+    '<div class="card">' + (d.payouts.length ? d.payouts.map(function (p) {
+      return '<div class="item"><div><b>' + ksh(p.amount) + '</b><div class="small">' + p.shops + ' shop' + (p.shops === 1 ? '' : 's') + (p.paid_ref ? ', M-Pesa ' + esc(p.paid_ref) : '') + '</div></div><div class="right small">' + day(p.paid_at) + '</div></div>';
+    }).join('') : '<div class="empty">No payouts yet.</div>') + '</div>';
+}
+
+function leadsView(main) {
   var d = state.data;
   var today = new Date().toISOString().slice(0, 10);
-  el.innerHTML =
-    '<details' + (d.leads.length ? '' : ' open') + '><summary style="font-weight:700;cursor:pointer">+ Add a shop that is not ready yet</summary>' +
-    '<form id="lf" style="margin-top:12px">' +
+  main.innerHTML = '<h1>Leads</h1><p class="lead">Shops that were interested but not ready. Follow up on the date you agreed.</p>' +
+    '<div class="card"><details' + (d.leads.length ? '' : ' open') + '><summary>Add a shop that isn’t ready yet</summary>' +
+    '<form id="lf" style="margin-top:14px">' +
     '<label>Shop name<input name="businessName" required></label>' +
     '<div class="row2"><label>Owner’s name<input name="contactName"></label><label>Phone<input name="phone" inputmode="tel" placeholder="07..."></label></div>' +
-    '<div class="row2"><label>Type of shop<input name="businessType" placeholder="e.g. duka, hardware"></label><label>Location<input name="location" placeholder="street or landmark"></label></div>' +
+    '<div class="row2"><label>Type of shop<input name="businessType" placeholder="e.g. duka, hardware"></label><label>Location<input name="location" placeholder="Street or landmark"></label></div>' +
     '<div class="row2"><label>Interest<select name="interest"><option value="hot">Hot</option><option value="warm" selected>Warm</option><option value="cold">Cold</option></select></label>' +
     '<label>Follow-up date<input name="nextFollowUp" type="date" min="' + today + '"></label></div>' +
-    '<label>Why not now?<input name="objection" placeholder="e.g. no money this month"></label>' +
-    '<div class="error" id="lerr"></div><button id="lgo">Save lead</button></form></details>' +
-    (d.leads.length ? d.leads.map(function (l) {
+    '<label>Why not now?<input name="objection" placeholder="e.g. No money this month"></label>' +
+    '<div class="error" id="lerr" role="alert"></div><button id="lgo">Save lead</button></form></details></div>' +
+    '<div class="card">' + (d.leads.length ? d.leads.map(function (l) {
       var due = l.next_follow_up && l.next_follow_up.slice(0, 10) <= today;
       return '<div class="item"><div><b>' + esc(l.business_name) + '</b>' +
-        '<div class="small">' + esc([l.contact_name, l.location].filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="small">' + esc([l.contact_name, l.location].filter(Boolean).join(', ')) + '</div>' +
         (l.objection ? '<div class="small">“' + esc(l.objection) + '”</div>' : '') +
-        (l.phone ? '<a class="small" href="tel:+' + esc(l.phone) + '">Call ' + esc(l.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
-        '<div class="right"><span class="badge b-' + esc(l.interest) + '">' + esc(l.interest) + '</span>' +
-        '<div class="small" style="margin-top:4px;' + (due ? 'color:var(--danger);font-weight:700' : '') + '">' + (l.next_follow_up ? (due ? 'Due ' : 'Follow up ') + day(l.next_follow_up) : 'No date') + '</div>' +
-        '<button class="ghost" style="margin-top:6px;padding:6px 10px" data-lead="' + esc(l.id) + '">Update</button></div></div>';
-    }).join('') : '<div class="empty">No open leads.</div>');
+        (l.phone ? '<a class="call" href="tel:+' + esc(l.phone) + '">Call ' + esc(l.phone.replace(/^254/, '0')) + '</a>' : '') + '</div>' +
+        '<div class="right"><span class="badge b-' + esc(l.interest) + '">' + esc(l.interest[0].toUpperCase() + l.interest.slice(1)) + '</span>' +
+        '<span class="small" style="' + (due ? 'color:var(--danger);font-weight:700' : '') + '">' + (l.next_follow_up ? (due ? 'Due ' : 'Follow up ') + day(l.next_follow_up) : 'No date set') + '</span>' +
+        '<button class="ghost" style="padding:6px 12px" data-lead="' + esc(l.id) + '">Update</button></div></div>';
+    }).join('') : '<div class="empty">No open leads.</div>') + '</div>';
 
   document.getElementById('lf').onsubmit = function (e) {
     e.preventDefault();
-    var f = e.target, body = {};
-    Array.prototype.forEach.call(f.elements, function (x) { if (x.name) body[x.name] = x.value; });
+    var body = {};
+    Array.prototype.forEach.call(e.target.elements, function (x) { if (x.name) body[x.name] = x.value; });
     var b = document.getElementById('lgo'); b.disabled = true;
-    api('/leads', { method: 'POST', body: body }).then(function () { toast('Lead saved'); state.tab = 'leads'; load(); })
+    api('/leads', { method: 'POST', body: body }).then(function () { toast('Lead saved'); refresh(); })
       .catch(function (err) { document.getElementById('lerr').textContent = err.message; b.disabled = false; });
   };
-  Array.prototype.forEach.call(el.querySelectorAll('[data-lead]'), function (b) {
+  Array.prototype.forEach.call(main.querySelectorAll('[data-lead]'), function (b) {
     b.onclick = function () { updateLead(b.getAttribute('data-lead')); };
   });
 }
@@ -265,8 +368,11 @@ function updateLead(id) {
   if (/^lost$/i.test(next.trim())) body.status = 'lost';
   else if (/^\d{4}-\d{2}-\d{2}$/.test(next.trim())) { body.nextFollowUp = next.trim(); body.status = 'follow_up'; }
   else body.status = 'contacted';
-  api('/leads/' + id, { method: 'PATCH', body: body }).then(function () { toast('Lead updated'); load(); }, function (e) { alert(e.message); });
+  api('/leads/' + id, { method: 'PATCH', body: body }).then(function () { toast('Lead updated'); refresh(); }, function (e) { alert(e.message); });
 }
+
+// Reload the numbers but stay on the same section
+function refresh() { api('/me').then(function (d) { state.data = d; renderShell(); }); }
 
 if (token) load(); else renderLogin();
 </script>
