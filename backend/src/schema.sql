@@ -429,3 +429,9 @@ CREATE INDEX IF NOT EXISTS app_downloads_month_idx ON app_downloads (created_at)
 -- ============ v9: agent portal ============
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS pin_hash TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+
+-- ============ v10: referral bonuses per plan ============
+-- Empty (NULL) means the plan uses the default bonus rules in settings
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS referrer_bonus_days INTEGER;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS agent_conversion_cash INTEGER;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS agent_recurring_cash INTEGER;

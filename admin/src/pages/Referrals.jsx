@@ -221,6 +221,7 @@ function BonusSettings() {
 
   return (
     <form className="card settings" onSubmit={save}>
+      <p className="muted small">These are the defaults. Each plan can have its own bonuses in Plans and app, which override these for shops paying for that plan.</p>
       <h3>Business referring a business</h3>
       <label>Free days the referring business gets when their friend pays for the first time<input {...field('referrer_bonus_days')} /></label>
       <label>Extra trial days for anyone who signs up with a code (business or agent code)<input {...field('referee_bonus_trial_days')} /></label>

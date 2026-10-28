@@ -54,11 +54,38 @@ async function addBonusDays(db, businessId, days) {
   );
 }
 
-// Called inside the payment transaction every time a payment succeeds
+// The bonuses a plan pays out: its own amounts where set, otherwise the default bonus rules
+function bonusesFor(plan, settings) {
+  const pick = (own, fallback) => (own === null || own === undefined ? Number(fallback) || 0 : Number(own));
+  return {
+    referrerDays: pick(plan && plan.referrer_bonus_days, settings.referrer_bonus_days),
+    agentFirst: pick(plan && plan.agent_conversion_cash, settings.agent_conversion_cash),
+    agentRenewal: pick(plan && plan.agent_recurring_cash, settings.agent_recurring_cash),
+  };
+}
+
+// Bonuses for every plan on sale, for showing to referrers and agents
+async function bonusesByPlan(db) {
+  const settings = await getSettings(db);
+  const plans = (await db.query('SELECT * FROM plans WHERE is_active ORDER BY sort_order, price_kes')).rows;
+  return plans.map((p) => ({ code: p.code, name: p.name, price: p.price_kes, ...bonusesFor(p, settings) }));
+}
+
+// "30" when every plan gives the same, "15 to 30" when they differ
+function rangeText(values) {
+  const v = values.filter((n) => n > 0);
+  if (!v.length) return '0';
+  const lo = Math.min(...v), hi = Math.max(...v);
+  return lo === hi ? String(lo) : `${lo} to ${hi}`;
+}
+
+// Called inside the payment transaction every time a payment succeeds.
+// The bonus follows the plan the referred shop paid for.
 async function onPaymentSuccess(db, payment) {
   const ref = (await db.query('SELECT * FROM referrals WHERE referee_id = $1', [payment.business_id])).rows[0];
   if (!ref) return;
-  const settings = await getSettings(db);
+  const plan = (await db.query('SELECT * FROM plans WHERE code = $1', [payment.plan_code])).rows[0];
+  const bonus = bonusesFor(plan, await getSettings(db));
 
   const first = await db.query(
     `UPDATE referrals SET status = 'converted', converted_at = now()
@@ -67,17 +94,17 @@ async function onPaymentSuccess(db, payment) {
   );
   const isFirst = Boolean(first.rows[0]);
 
-  if (ref.referrer_type === 'business' && ref.referrer_business && isFirst && settings.referrer_bonus_days > 0) {
+  if (ref.referrer_type === 'business' && ref.referrer_business && isFirst && bonus.referrerDays > 0) {
     const r = await db.query(
       `INSERT INTO referral_rewards (referral_id, payment_id, kind, amount, reason, status)
        VALUES ($1, $2, 'days', $3, 'conversion', 'applied') ON CONFLICT DO NOTHING RETURNING id`,
-      [ref.id, payment.id, settings.referrer_bonus_days]
+      [ref.id, payment.id, bonus.referrerDays]
     );
-    if (r.rows[0]) await addBonusDays(db, ref.referrer_business, settings.referrer_bonus_days);
+    if (r.rows[0]) await addBonusDays(db, ref.referrer_business, bonus.referrerDays);
   }
 
   if (ref.referrer_type === 'agent' && ref.referrer_agent) {
-    const cash = isFirst ? settings.agent_conversion_cash : settings.agent_recurring_cash;
+    const cash = isFirst ? bonus.agentFirst : bonus.agentRenewal;
     if (cash > 0) {
       await db.query(
         `INSERT INTO referral_rewards (referral_id, payment_id, kind, amount, reason)
@@ -88,4 +115,4 @@ async function onPaymentSuccess(db, payment) {
   }
 }
 
-module.exports = { uniqueCode, normalizeCode, resolveCode, recordReferral, onPaymentSuccess, randomCode };
+module.exports = { uniqueCode, normalizeCode, resolveCode, recordReferral, onPaymentSuccess, randomCode, bonusesFor, bonusesByPlan, rangeText };

@@ -338,16 +338,22 @@ router.get('/plans', async (req, res) => {
 });
 
 router.put('/plans/:code', async (req, res) => {
-  const { name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits } = req.body || {};
+  const { name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits,
+    referrer_bonus_days, agent_conversion_cash, agent_recurring_cash } = req.body || {};
+  // Empty means "use the default bonus rules"
+  const optional = (v) => (v === null || v === undefined || String(v).trim() === '' ? null : Math.max(0, Math.round(Number(v) || 0)));
   if (!name || !(Number(price_kes) > 0) || !(Number(duration_days) > 0)) throw new HttpError(400, 'Name, price and duration are required');
   const { rows } = await query(
-    `INSERT INTO plans (code, name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO plans (code, name, price_kes, duration_days, features, is_active, sort_order, max_branches, max_employees, sms_credits,
+                        referrer_bonus_days, agent_conversion_cash, agent_recurring_cash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      ON CONFLICT (code) DO UPDATE SET name = $2, price_kes = $3, duration_days = $4, features = $5, is_active = $6, sort_order = $7,
-                                      max_branches = $8, max_employees = $9, sms_credits = $10
+                                      max_branches = $8, max_employees = $9, sms_credits = $10,
+                                      referrer_bonus_days = $11, agent_conversion_cash = $12, agent_recurring_cash = $13
      RETURNING *`,
     [req.params.code, name, Number(price_kes), Number(duration_days), JSON.stringify(features || []), is_active !== false, Number(sort_order) || 0,
-      Math.max(1, Number(max_branches) || 1), Math.max(0, Number(max_employees) || 0), Math.max(0, Math.round(Number(sms_credits) || 0))]
+      Math.max(1, Number(max_branches) || 1), Math.max(0, Number(max_employees) || 0), Math.max(0, Math.round(Number(sms_credits) || 0)),
+      optional(referrer_bonus_days), optional(agent_conversion_cash), optional(agent_recurring_cash)]
   );
   res.json({ plan: rows[0] });
 });

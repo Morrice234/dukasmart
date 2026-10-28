@@ -3,6 +3,7 @@ const { inviteLink } = require('../services/release');
 const { query } = require('../db');
 const { requireUser } = require('../middleware/auth');
 const { getSettings } = require('../services/settings');
+const { bonusesByPlan, rangeText } = require('../services/referrals');
 
 const router = express.Router();
 
@@ -22,9 +23,12 @@ router.get('/', requireUser, async (req, res) => {
     (t, r) => ({ signedUp: t.signedUp + 1, converted: t.converted + (r.status === 'converted' ? 1 : 0), daysEarned: t.daysEarned + r.days_earned }),
     { signedUp: 0, converted: 0, daysEarned: 0 }
   );
+  const byPlan = await bonusesByPlan({ query });
   res.json({
     code: b.referral_code,
-    rewardDays: settings.referrer_bonus_days,
+    // "30", or "15 to 30" when plans give different bonuses (the app shows it as "... free days")
+    rewardDays: byPlan.length ? rangeText(byPlan.map((p) => p.referrerDays)) : settings.referrer_bonus_days,
+    rewardsByPlan: byPlan.map((p) => ({ plan: p.name, days: p.referrerDays })),
     friendBonusDays: settings.referee_bonus_trial_days,
     inviteLink: inviteLink(b.referral_code),
     shareMessage: `I use DukaSmart to track my sales, expenses and deni on my phone. Get the app here: ${inviteLink(b.referral_code)}\n\nSign up with my code ${b.referral_code} and get ${settings.referee_bonus_trial_days} extra free days.`,

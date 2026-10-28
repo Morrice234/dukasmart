@@ -264,7 +264,7 @@ function overview(main) {
     '<div class="actions"><button id="copy">Copy message</button><a class="btn ghost" href="https://wa.me/?text=' + encodeURIComponent(shareText(d)) + '" target="_blank" rel="noopener">Share on WhatsApp</a></div></div>' +
 
     '<div class="grid">' +
-    '<div class="card money"><div class="label">Waiting to be paid</div><div class="big">' + ksh(m.pending) + '</div><div class="small">' + (d.ratePerPaidShop ? ksh(d.ratePerPaidShop) + ' for each shop that pays' : '') + '</div></div>' +
+    '<div class="card money"><div class="label">Waiting to be paid</div><div class="big">' + ksh(m.pending) + '</div><div class="small">' + (d.ratePerPaidShop ? (d.ratePerPaidShopMax && d.ratePerPaidShopMax !== d.ratePerPaidShop ? ksh(d.ratePerPaidShop) + ' to ' + ksh(d.ratePerPaidShopMax) : ksh(d.ratePerPaidShop)) + ' for each shop that pays' : '') + '</div></div>' +
     '<div class="card"><div class="label">Paid to you</div><div class="big">' + ksh(m.paid) + '</div><div class="small">All time</div></div>' +
     '<div class="card wide"><div class="label">Earned this month</div><div class="big">' + ksh(m.month) + '</div><div class="small">Paid and waiting</div></div>' +
     '</div>' +
@@ -317,6 +317,11 @@ function shopsView(main) {
 function payoutsView(main) {
   var d = state.data;
   main.innerHTML = '<h1>Payouts</h1><p class="lead">' + (d.money.pending ? ksh(d.money.pending) + ' is waiting for your next payout.' : 'Everything you have earned has been paid.') + '</p>' +
+    (d.rates && d.rates.length ? '<div class="card"><h2>What you earn per plan</h2>' + d.rates.map(function (r) {
+      return '<div class="item"><div><b>' + esc(r.plan) + '</b><div class="small">' + ksh(r.price) + ' plan</div></div>' +
+        '<div class="right"><span><b style="display:inline">' + ksh(r.firstPayment) + '</b> first payment</span>' +
+        (r.renewal ? '<span class="small">+ ' + ksh(r.renewal) + ' each renewal</span>' : '') + '</div></div>';
+    }).join('') + '</div>' : '') +
     '<div class="card">' + (d.payouts.length ? d.payouts.map(function (p) {
       return '<div class="item"><div><b>' + ksh(p.amount) + '</b><div class="small">' + p.shops + ' shop' + (p.shops === 1 ? '' : 's') + (p.paid_ref ? ', M-Pesa ' + esc(p.paid_ref) : '') + '</div></div><div class="right small">' + day(p.paid_at) + '</div></div>';
     }).join('') : '<div class="empty">No payouts yet.</div>') + '</div>';

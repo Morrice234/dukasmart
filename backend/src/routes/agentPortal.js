@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { query } = require('../db');
 const { HttpError, normalizePhone, subscriptionInfo } = require('../utils');
 const { inviteLink } = require('../services/release');
+const { bonusesByPlan } = require('../services/referrals');
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20 });
@@ -119,12 +120,16 @@ router.get('/me', requireAgent, async (req, res) => {
       FROM leads WHERE agent_id = $1 AND status NOT IN ('converted', 'lost')
      ORDER BY next_follow_up NULLS LAST, created_at DESC LIMIT 100`, [a.id])).rows;
 
-  const rate = (await query(`SELECT value FROM settings WHERE key = 'agent_conversion_cash'`)).rows[0];
+  // What the agent earns for each plan a shop pays for
+  const rates = (await bonusesByPlan({ query })).map((p) => ({ plan: p.name, price: p.price, firstPayment: p.agentFirst, renewal: p.agentRenewal }));
+  const firstAmounts = rates.map((r) => r.firstPayment).filter((n) => n > 0);
 
   res.json({
     agent: { name: a.name, phone: a.phone, code: a.code },
     inviteLink: inviteLink(a.code),
-    ratePerPaidShop: rate ? Number(rate.value) : null,
+    ratePerPaidShop: firstAmounts.length ? Math.min(...firstAmounts) : null,
+    ratePerPaidShopMax: firstAmounts.length ? Math.max(...firstAmounts) : null,
+    rates,
     downloads, counts, money, shops, payouts, weekly, leads,
   });
 });
