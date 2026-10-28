@@ -54,9 +54,9 @@ export default function Plans() {
             <div className="muted small">{p.max_branches} branch{p.max_branches === 1 ? '' : 'es'} · {p.max_employees} staff · {p.sms_credits || 0} SMS</div>
             <ul>{(p.features || []).map((f) => <li key={f}>{f}</li>)}</ul>
             <div className="plan-bonus small">
-              <div><span className="muted">Referring shop gets</span> {bonusText(p.referrer_bonus_days, defaults && defaults.referrer_bonus_days, (n) => `${n} free days`)}</div>
-              <div><span className="muted">Agent, first payment</span> {bonusText(p.agent_conversion_cash, defaults && defaults.agent_conversion_cash, (n) => ksh(n))}</div>
-              <div><span className="muted">Agent, each renewal</span> {bonusText(p.agent_recurring_cash, defaults && defaults.agent_recurring_cash, (n) => ksh(n))}</div>
+              <div><span className="bonus-label">Referring shop gets</span> {bonusText(p.referrer_bonus_days, defaults && defaults.referrer_bonus_days, (n) => `${n} free days`)}</div>
+              <div><span className="bonus-label">Agent, first payment</span> {bonusText(p.agent_conversion_cash, defaults && defaults.agent_conversion_cash, (n) => ksh(n))}</div>
+              <div><span className="bonus-label">Agent, each renewal</span> {bonusText(p.agent_recurring_cash, defaults && defaults.agent_recurring_cash, (n) => ksh(n))}</div>
             </div>
             {!p.is_active && <p className="muted small">Hidden from app</p>}
             <button className="btn ghost small" onClick={() => edit(p)}>Edit</button>
